@@ -1,25 +1,24 @@
-import dotenv from "dotenv";
+const dotenv = require("dotenv");
 dotenv.config();
 
-import express, { Express, Request, Response } from "express";
-import cors from "cors";
-import mongoose from "mongoose";
-import path from "path";
-import { fileURLToPath } from "url";
-import { errorHandler } from "./middleware/index";
-import authRoutes from "./routes/auth";
-import propertyRoutes from "./routes/properties";
-import bookingRoutes from "./routes/bookings";
-import adminRoutes from "./routes/adminRoutes";
-import userProfileRoutes from "./routes/userProfile";
-import uploadRoutes from "./routes/upload";
-import paymentRoutes from "./routes/payment";
-import { initializePaymentJobs } from "./utils/paymentScheduler";
+const express = require("express");
+const cors = require("cors");
+const mongoose = require("mongoose");
+const path = require("path");
+const { errorHandler } = require("./middleware/index");
+const authRoutes = require("./routes/auth");
+const propertyRoutes = require("./routes/properties");
+const bookingRoutes = require("./routes/bookings");
+const adminRoutes = require("./routes/adminRoutes");
+const userProfileRoutes = require("./routes/userProfile");
+const uploadRoutes = require("./routes/upload");
+const paymentRoutes = require("./routes/payment");
+const contentRoutes = require("./routes/content");
+const { initializePaymentJobs } = require("./utils/paymentScheduler");
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+const __dirname = require('path').dirname(__filename);
 
-const app: Express = express();
+const app = express();
 const PORT = process.env.PORT || 5000;
 const MONGODB_URI = process.env.MONGODB_URI || "mongodb://localhost:27017/raibaar";
 
@@ -37,7 +36,7 @@ app.use("/uploads", express.static(path.join(__dirname, "../uploads")));
 mongoose
   .connect(MONGODB_URI)
   .then(() => console.log("✓ MongoDB connected"))
-  .catch((err) => console.error("✗ MongoDB connection error:", err));
+  .catch((err: any) => console.error("✗ MongoDB connection error:", err));
 
 // Initialize payment scheduled jobs
 const paymentJobs = initializePaymentJobs();
@@ -50,14 +49,15 @@ app.use("/api/bookings", bookingRoutes);
 app.use("/api/payments", paymentRoutes);
 app.use("/api/admin", adminRoutes);
 app.use("/api/upload", uploadRoutes);
+app.use("/api/content", contentRoutes);
 
 // Health check
-app.get("/api/health", (req: Request, res: Response) => {
+app.get("/api/health", (req: any, res: any) => {
   res.json({ status: "OK", timestamp: new Date() });
 });
 
 // Root endpoint
-app.get("/api", (req: Request, res: Response) => {
+app.get("/api", (req: any, res: any) => {
   res.json({
     message: "Raibaar API Server",
     version: "1.0.0",
@@ -67,6 +67,7 @@ app.get("/api", (req: Request, res: Response) => {
       bookings: "/api/bookings",
       payments: "/api/payments",
       admin: "/api/admin",
+      content: "/api/content",
       health: "/api/health",
     },
   });

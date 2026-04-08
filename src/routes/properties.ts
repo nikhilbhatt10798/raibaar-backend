@@ -1,13 +1,13 @@
-import { Router } from "express";
-import {
+const { Router } = require("express");
+const {
   createProperty,
   getProperties,
   getPropertyById,
   getPropertyReviews,
   updateProperty,
   getFeaturedProperties,
-} from "../controllers/properties";
-import { authMiddleware } from "../middleware/index";
+} = require("../controllers/properties");
+const { authMiddleware } = require("../middleware/index");
 
 const router = Router();
 
@@ -20,4 +20,4 @@ router.get("/:id/reviews", getPropertyReviews);
 router.post("/", authMiddleware, createProperty);
 router.put("/:id", authMiddleware, updateProperty);
 
-export default router;
+module.exports = router;

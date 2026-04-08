@@ -1,5 +1,5 @@
-import express from "express";
-import {
+const express = require("express");
+const {
   getDashboardStats,
   getAllUsers,
   deleteUser,
@@ -20,8 +20,8 @@ import {
   updateProperty,
   createUser,
   approveBooking,
-} from "../controllers/admin";
-import { authMiddleware } from "../middleware";
+} = require("../controllers/admin");
+const { authMiddleware } = require("../middleware");
 
 const router = express.Router();
 
@@ -61,4 +61,4 @@ router.post("/users", authMiddleware, createUser);
 // Admin Creation (public endpoint, should be restricted in production)
 router.post("/create-admin", createAdminUser);
 
-export default router;
+module.exports = router;

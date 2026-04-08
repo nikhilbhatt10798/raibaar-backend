@@ -1,17 +1,6 @@
-import { Request, Response, NextFunction } from "express";
-import { verifyToken } from "../utils/auth";
+const { verifyToken } = require("../utils/auth");
 
-declare global {
-  namespace Express {
-    interface Request {
-      userId?: string;
-      role?: string;
-      user?: any;
-    }
-  }
-}
-
-export const authMiddleware = (req: Request, res: Response, next: NextFunction): void => {
+const authMiddleware = (req: any, res: any, next: any): void => {
   const token = req.headers.authorization?.split(" ")[1];
 
   if (!token) {
@@ -30,9 +19,14 @@ export const authMiddleware = (req: Request, res: Response, next: NextFunction):
   next();
 };
 
-export const errorHandler = (err: any, req: Request, res: Response, next: NextFunction): void => {
+const errorHandler = (err: any, req: any, res: any, next: any): void => {
   console.error("Error:", err);
   res.status(err.status || 500).json({
     error: err.message || "Internal Server Error",
   });
+};
+
+module.exports = {
+  authMiddleware,
+  errorHandler
 };

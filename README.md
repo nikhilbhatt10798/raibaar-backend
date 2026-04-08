@@ -1,15 +1,18 @@
-# Raibaar Backend API
+# Renbasera Backend API
 
-A Node.js/Express backend API for the Raibaar village homestays platform.
+A comprehensive Node.js/Express backend API for the Renbasera village homestays platform with complete payment processing.
 
 ## Features
 
-- User authentication (JWT-based)
-- Property listings and search with filtering
-- Booking management
-- Review system
-- Host profiles
-- Payment preparation
+- **User Authentication**: JWT-based authentication with role-based access
+- **Property Management**: Complete CRUD operations with advanced search and filtering
+- **Booking System**: Full booking lifecycle with availability management
+- **Review System**: Guest reviews with ratings and photos
+- **Host Profiles**: Comprehensive host management with verification
+- **Payment Processing**: Complete Razorpay integration with GST calculations
+- **Host Earnings**: Wallet system with withdrawal management
+- **File Uploads**: Image upload for properties and reviews
+- **Real-time Updates**: Redis-based caching and job processing
 
 ## Tech Stack
 
@@ -17,8 +20,13 @@ A Node.js/Express backend API for the Raibaar village homestays platform.
 - **Framework**: Express.js
 - **Language**: TypeScript
 - **Database**: MongoDB with Mongoose
-- **Authentication**: JWT
+- **Authentication**: JWT with bcrypt
 - **Validation**: Zod
+- **Payment**: Razorpay with GST calculations
+- **File Storage**: Multer for image uploads
+- **Caching**: Redis for session and job management
+- **Job Processing**: Bull queues with node-cron
+- **CORS**: Configured for frontend integration
 
 ## Installation
 
@@ -42,18 +50,28 @@ A Node.js/Express backend API for the Raibaar village homestays platform.
    - `JWT_SECRET`: Your secret key for JWT
    - `PORT`: Server port (default: 5000)
    - `CORS_ORIGIN`: Frontend URL for CORS
+   - `RAZORPAY_KEY_ID`: Razorpay API key
+   - `RAZORPAY_KEY_SECRET`: Razorpay secret key
+   - `RAZORPAY_WEBHOOK_SECRET`: Razorpay webhook secret
+   - `REDIS_HOST`: Redis server host (optional)
+   - `REDIS_PORT`: Redis server port (optional)
 
 4. **Start MongoDB** (if using local instance)
    ```bash
    mongod
    ```
 
-5. **Seed initial data** (optional)
+5. **Start Redis** (optional, for caching and job queues)
+   ```bash
+   redis-server
+   ```
+
+6. **Seed initial data** (optional)
    ```bash
    npm run seed
    ```
 
-6. **Run development server**
+7. **Run development server**
    ```bash
    npm run dev
    ```
@@ -84,16 +102,44 @@ Server will start on `http://localhost:5000`
 - `GET /api/bookings/reviews` - Get reviews
 - `POST /api/bookings/reviews` - Create review (protected)
 
+### Payments
+- `POST /api/payments/create` - Create payment order
+- `POST /api/payments/verify` - Verify payment status
+- `GET /api/payments/details/:bookingId` - Get payment details
+- `POST /api/payments/callback` - Razorpay webhook endpoint
+- `GET /api/payments/refund/status/:paymentId` - Check refund status
+
+### Host Earnings
+- `GET /api/payments/earnings/:hostId` - Get host earnings
+- `POST /api/payments/withdrawal/request/:hostId` - Request withdrawal
+- `GET /api/payments/withdrawal/history/:hostId` - Withdrawal history
+- `POST /api/payments/bank-account/:hostId` - Update bank account
+- `GET /api/payments/income-statement/:hostId` - Generate income statement
+
+### Admin Operations
+- `POST /api/payments/admin/handle-stuck` - Handle stuck payments
+- `POST /api/payments/admin/process-pending-refunds` - Process refunds
+- `POST /api/payments/admin/reconcile` - Daily reconciliation
+
 ## Environment Variables
 
 ```env
 PORT=5000
 NODE_ENV=development
-MONGODB_URI=mongodb://localhost:27017/raibaar
+MONGODB_URI=mongodb://localhost:27017/renbasera
 JWT_SECRET=your_super_secret_jwt_key
 JWT_EXPIRY=7d
 CORS_ORIGIN=http://localhost:5173
 API_BASE_URL=http://localhost:5000
+
+# Razorpay Configuration
+RAZORPAY_KEY_ID=your_razorpay_key_id
+RAZORPAY_KEY_SECRET=your_razorpay_key_secret
+RAZORPAY_WEBHOOK_SECRET=your_webhook_secret
+
+# Redis Configuration (Optional)
+REDIS_HOST=localhost
+REDIS_PORT=6379
 ```
 
 ## Request Examples
@@ -165,32 +211,91 @@ src/
 ## Database Schema
 
 ### User
-- email, password, firstName, lastName, phone, role, isVerified
+- email, password (hashed), firstName, lastName, phone, role, isVerified, timestamps
 
 ### HostProfile
-- userId, bio, village, district, verified, yearsHosting, bankAccount
+- userId, bio, village, district, state, yearsHosting, verified, averageRating, bankAccount
 
 ### Property
-- title, description, location, price, images, amenities, hostId, featured
+- title, description, location, price, images, amenities, houseRules, hostId, featured, available, blockedDates
 
 ### Booking
-- propertyId, userId, hostId, checkIn, checkOut, guests, pricing, status
+- propertyId, userId, hostId, checkIn, checkOut, guests, pricing, status, specialRequests
 
 ### Review
-- propertyId, userId, rating, comment, photos
+- propertyId, userId, rating, comment, photos, timestamps
 
 ### Payment
-- bookingId, userId, amount, method, status, transactionId
+- bookingId, userId, amount, currency, method, status, transactionId, razorpayOrderId, gstBreakdown
 
-## Future Enhancements
+### HostWallet
+- hostId, balance, totalEarnings, totalWithdrawn, lastUpdated
 
-- Razorpay payment integration
-- Email notifications
-- Admin dashboard
-- Availability calendar
-- Advanced search filters
-- User profiles
-- Wishlist feature
+### Withdrawal
+- hostId, amount, status, bankAccount, processedAt, createdAt
+
+### Testimonial
+- userId, name, avatar, location, quote, rating, approved
+
+## Key Features Implemented
+
+✅ **Complete Authentication System**
+- JWT-based authentication with role-based access control
+- Password hashing with bcrypt
+- Protected routes with middleware
+
+✅ **Property Management**
+- Full CRUD operations for properties
+- Advanced search and filtering
+- Image upload functionality
+- Featured properties system
+
+✅ **Booking System**
+- Complete booking lifecycle management
+- Availability checking and date blocking
+- Booking status tracking
+- Cancellation support
+
+✅ **Payment Processing**
+- Full Razorpay integration
+- GST calculations (18% on room and platform charges)
+- Platform service charges (5%)
+- Escrow-like payment holds
+- Automatic payment failure handling
+- Host wallet system
+
+✅ **Host Earnings Management**
+- Wallet system for tracking earnings
+- Withdrawal request processing
+- Bank account management
+- Monthly income statements
+- Earnings breakdown with GST details
+
+✅ **Review System**
+- Guest reviews with ratings
+- Photo uploads in reviews
+- Property average rating calculations
+
+✅ **File Upload System**
+- Multer-based image uploads
+- Property and review image support
+- File validation and storage management
+
+✅ **Advanced Features**
+- Redis caching and job queues
+- Scheduled payment reconciliation
+- Webhook integration for real-time updates
+- Comprehensive error handling
+- Input validation with Zod
+
+## Next Steps
+
+- Email notifications system
+- Real-time chat between guests and hosts
+- Advanced analytics dashboard
+- Mobile app API endpoints
+- Multi-language support
+- Advanced search with map integration
 
 ## License
 

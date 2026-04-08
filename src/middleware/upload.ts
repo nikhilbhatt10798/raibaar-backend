@@ -1,26 +1,22 @@
-import multer, { StorageEngine } from "multer";
-import path from "path";
-import { fileURLToPath } from "url";
-import { mkdir } from "fs/promises";
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+const multer = require("multer");
+const path = require("path");
+const { mkdir } = require("fs/promises");
 
 // Ensure uploads directory exists
 const uploadsDir = path.join(__dirname, "../../uploads");
 mkdir(uploadsDir, { recursive: true }).catch(console.error);
 
 // Configure storage
-const storage: StorageEngine = multer.diskStorage({
-  destination: async (req, file, cb) => {
+const storage = multer.diskStorage({
+  destination: async (req: any, file: any, cb: any) => {
     try {
       await mkdir(uploadsDir, { recursive: true });
       cb(null, uploadsDir);
     } catch (error) {
-      cb(error as Error, "");
+      cb(error, "");
     }
   },
-  filename: (req, file, cb) => {
+  filename: (req: any, file: any, cb: any) => {
     const uniqueSuffix = Date.now() + "-" + Math.round(Math.random() * 1e9);
     const ext = path.extname(file.originalname);
     const name = path.basename(file.originalname, ext);
@@ -29,7 +25,7 @@ const storage: StorageEngine = multer.diskStorage({
 });
 
 // Filter for image files only
-const fileFilter = (req: any, file: Express.Multer.File, cb: multer.FileFilterCallback) => {
+const fileFilter = (req: any, file: any, cb: any) => {
   const allowedMimes = ["image/jpeg", "image/png", "image/gif", "image/webp"];
   if (allowedMimes.includes(file.mimetype)) {
     cb(null, true);
@@ -39,7 +35,7 @@ const fileFilter = (req: any, file: Express.Multer.File, cb: multer.FileFilterCa
 };
 
 // Create multer instance
-export const upload = multer({
+const upload = multer({
   storage,
   fileFilter,
   limits: {
@@ -47,7 +43,11 @@ export const upload = multer({
   },
 });
 
-// Helper function to generate file URLs
-export const getFileUrl = (filename: string): string => {
+const getFileUrl = (filename: string): string => {
   return `http://localhost:5000/uploads/${filename}`;
+};
+
+module.exports = {
+  upload,
+  getFileUrl
 };

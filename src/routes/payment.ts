@@ -1,5 +1,5 @@
-import express from "express";
-import {
+const express = require("express");
+const {
   handlePaymentCallback,
   getHostEarnings,
   requestWithdrawal,
@@ -8,8 +8,8 @@ import {
   getPaymentDetails,
   generateIncomeStatement,
   createPaymentForBooking,
-} from "../controllers/payment";
-import {
+} = require("../controllers/payment");
+const {
   handleStuckPayments,
   verifyPaymentWithGateway,
   getRefundStatus,
@@ -17,8 +17,8 @@ import {
   getPaymentIssueHistory,
   reconcilePayments,
   processPendingRefunds,
-} from "../controllers/paymentFailure";
-import { authMiddleware } from "../middleware/index";
+} = require("../controllers/paymentFailure");
+const { authMiddleware } = require("../middleware/index");
 
 const router = express.Router();
 
@@ -52,4 +52,4 @@ router.post("/admin/process-pending-refunds", processPendingRefunds); // Run per
 router.post("/admin/reconcile", reconcilePayments); // Run daily
 router.post("/webhook", handlePaymentWebhook); // Payment gateway webhook
 
-export default router;
+module.exports = router;

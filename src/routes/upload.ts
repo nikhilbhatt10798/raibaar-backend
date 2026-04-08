@@ -1,7 +1,7 @@
-import { Router } from "express";
-import { upload } from "../middleware/upload";
-import { uploadImages, getUploadedImages } from "../controllers/upload";
-import { authMiddleware } from "../middleware/index";
+const { Router } = require("express");
+const { upload } = require("../middleware/upload");
+const { uploadImages, getUploadedImages } = require("../controllers/upload");
+const { authMiddleware } = require("../middleware/index");
 
 const router = Router();
 
@@ -11,4 +11,4 @@ router.get("/", getUploadedImages);
 // Upload multiple images (protected - requires authentication)
 router.post("/", authMiddleware, upload.array("images", 10), uploadImages);
 
-export default router;
+module.exports = router;

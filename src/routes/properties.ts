@@ -1,4 +1,4 @@
-const { Router } = require("express");
+const express = require("express");
 const {
   createProperty,
   getProperties,
@@ -9,7 +9,7 @@ const {
 } = require("../controllers/properties");
 const { authMiddleware } = require("../middleware/index");
 
-const router = Router();
+const router = express.Router();
 
 router.get("/featured", getFeaturedProperties);
 router.get("/", getProperties);

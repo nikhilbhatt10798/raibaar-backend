@@ -3,10 +3,17 @@
  * Handles GST, platform charges, and fee calculations
  */
 
+import { PricingSettings } from "../models/index";
+
 // Configuration
-const PLATFORM_CHARGE_PERCENTAGE = 5; // 5% platform charge
-const GST_RATE = 0.18; // 18% GST (applicable in India)
+const DEFAULT_PLATFORM_CHARGE_PERCENTAGE = 5; // 5% platform charge
+const DEFAULT_GST_PERCENTAGE = 18; // 18% GST (applicable in India)
 const MINIMUM_BOOKING_AMOUNT = 0;
+
+export interface PricingConfig {
+  convenienceChargePercentage: number;
+  gstPercentage: number;
+}
 
 interface PaymentBreakdown {
   basePrice: number;
@@ -14,6 +21,8 @@ interface PaymentBreakdown {
   gstOnPlatformCharge: number;
   gstOnRoomCharge: number;
   total: number;
+  convenienceChargePercentage: number;
+  gstPercentage: number;
   breakdown: {
     roomChargeBeforeTax: number;
     platformChargeBeforeTax: number;
@@ -28,16 +37,41 @@ interface PaymentBreakdown {
  * Input: base room price for the stay
  * Output: all fees, taxes, and total amount
  */
-export const calculatePaymentBreakdown = (roomPrice: number): PaymentBreakdown => {
+export const getPricingConfig = async (): Promise<PricingConfig> => {
+  let settings = await PricingSettings.findOne().sort({ createdAt: 1 });
+
+  if (!settings) {
+    settings = await PricingSettings.create({
+      convenienceChargePercentage: DEFAULT_PLATFORM_CHARGE_PERCENTAGE,
+      gstPercentage: DEFAULT_GST_PERCENTAGE,
+    });
+  }
+
+  return {
+    convenienceChargePercentage: settings.convenienceChargePercentage,
+    gstPercentage: settings.gstPercentage,
+  };
+};
+
+export const calculatePaymentBreakdown = (
+  roomPrice: number,
+  config: PricingConfig = {
+    convenienceChargePercentage: DEFAULT_PLATFORM_CHARGE_PERCENTAGE,
+    gstPercentage: DEFAULT_GST_PERCENTAGE,
+  }
+): PaymentBreakdown => {
+  const gstRate = config.gstPercentage / 100;
+
   // Room charge
   const roomChargeBeforeTax = roomPrice;
 
-  // Platform charge (5% of room price)
-  const platformChargeBeforeTax = (roomPrice * PLATFORM_CHARGE_PERCENTAGE) / 100;
+  // Platform charge (admin configured percentage of room price)
+  const platformChargeBeforeTax =
+    (roomPrice * config.convenienceChargePercentage) / 100;
 
-  // GST calculations (18%)
-  const gstOnRoom = roomChargeBeforeTax * GST_RATE;
-  const gstOnPlatform = platformChargeBeforeTax * GST_RATE;
+  // GST calculations (admin configured percentage)
+  const gstOnRoom = roomChargeBeforeTax * gstRate;
+  const gstOnPlatform = platformChargeBeforeTax * gstRate;
   const totalGST = gstOnRoom + gstOnPlatform;
 
   // Total
@@ -50,6 +84,8 @@ export const calculatePaymentBreakdown = (roomPrice: number): PaymentBreakdown =
     gstOnPlatformCharge: gstOnPlatform,
     gstOnRoomCharge: gstOnRoom,
     total: Math.round(total * 100) / 100, // Round to 2 decimals
+    convenienceChargePercentage: config.convenienceChargePercentage,
+    gstPercentage: config.gstPercentage,
     breakdown: {
       roomChargeBeforeTax,
       platformChargeBeforeTax,
@@ -65,12 +101,14 @@ export const calculatePaymentBreakdown = (roomPrice: number): PaymentBreakdown =
  */
 export const calculateHostEarnings = (
   totalAmount: number,
-  platformChargePercentage: number = PLATFORM_CHARGE_PERCENTAGE
+  platformChargePercentage: number = DEFAULT_PLATFORM_CHARGE_PERCENTAGE,
+  gstPercentage: number = DEFAULT_GST_PERCENTAGE
 ): {
   hostReceives: number;
   platformCharges: number;
   gstOnPlatformCharge: number;
 } => {
+  const gstRate = gstPercentage / 100;
   // Extract platform charge and GST
   // Total = roomPrice + platformCharge + gstOnRoom + gstOnPlatform
   // Reverse calculation is complex, so we use the breakdown
@@ -79,7 +117,7 @@ export const calculateHostEarnings = (
   // Simple approach: platformCharge + GST on platformCharge = (total * platformChargePercentage) / (100 + platformChargePercentage * GST_RATE)
 
   const platformCharges = (totalAmount * platformChargePercentage) / 100;
-  const gstOnPlatformCharge = platformCharges * GST_RATE;
+  const gstOnPlatformCharge = platformCharges * gstRate;
 
   const hostReceives = totalAmount - platformCharges - gstOnPlatformCharge;
 
@@ -167,15 +205,15 @@ export const generatePaymentReceipt = (
         amount: breakdown.basePrice,
       },
       {
-        description: "Platform Service Charge",
+        description: `Platform Service Charge (${breakdown.convenienceChargePercentage}%)`,
         amount: breakdown.platformCharge,
       },
       {
-        description: "GST on Room Charges (18%)",
+        description: `GST on Room Charges (${breakdown.gstPercentage}%)`,
         amount: breakdown.gstOnRoomCharge,
       },
       {
-        description: "GST on Service Charge (18%)",
+        description: `GST on Service Charge (${breakdown.gstPercentage}%)`,
         amount: breakdown.gstOnPlatformCharge,
       },
     ],
@@ -200,7 +238,10 @@ export const calculateMonthlySettlement = (
   const totalServiceFees = bookings.reduce((sum, b) => sum + b.serviceFee, 0);
   const totalTax = bookings.reduce((sum, b) => sum + b.tax, 0);
   const netEarnings =
-    totalEarnings - totalServiceFees - (totalServiceFees * GST_RATE) / (1 + GST_RATE);
+    totalEarnings -
+    totalServiceFees -
+    (totalServiceFees * (DEFAULT_GST_PERCENTAGE / 100)) /
+      (1 + DEFAULT_GST_PERCENTAGE / 100);
 
   return {
     period: new Date(),

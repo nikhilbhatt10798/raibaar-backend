@@ -112,6 +112,7 @@ export const createPaymentForBooking = async (
     res.json({
       success: true,
       payment: {
+        keyId: process.env.RAZORPAY_KEY_ID,
         orderId: payment._id,
         razorpayOrderId: razorpayOrder.id,
         amount: booking.totalPrice,

@@ -14,6 +14,7 @@ const userProfileRoutes = require("./routes/userProfile");
 const uploadRoutes = require("./routes/upload");
 const paymentRoutes = require("./routes/payment");
 const contentRoutes = require("./routes/content");
+const testimonialRoutes = require("./routes/testimonials");
 const { initializePaymentJobs } = require("./utils/paymentScheduler");
 
 const __dirname = require('path').dirname(__filename);
@@ -50,6 +51,7 @@ app.use("/api/payments", paymentRoutes);
 app.use("/api/admin", adminRoutes);
 app.use("/api/upload", uploadRoutes);
 app.use("/api/content", contentRoutes);
+app.use("/api/testimonials", testimonialRoutes);
 
 // Health check
 app.get("/api/health", (req: any, res: any) => {
@@ -68,6 +70,7 @@ app.get("/api", (req: any, res: any) => {
       payments: "/api/payments",
       admin: "/api/admin",
       content: "/api/content",
+      testimonials: "/api/testimonials",
       health: "/api/health",
     },
   });

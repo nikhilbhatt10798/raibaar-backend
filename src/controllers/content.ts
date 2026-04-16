@@ -1,5 +1,6 @@
 import { Request, Response } from "express";
 import { z } from "zod";
+import { PricingSettings } from "../models";
 
 // Type for admin request with user
 interface AdminRequest extends Request {
@@ -38,6 +39,11 @@ const testimonialSchema = z.object({
   location: z.string(),
   quote: z.string(),
   rating: z.number().min(1).max(5),
+});
+
+const pricingSettingsSchema = z.object({
+  convenienceChargePercentage: z.number().min(0).max(100),
+  gstPercentage: z.number().min(0).max(100),
 });
 
 // In-memory storage for demonstration (in production, use MongoDB)
@@ -123,6 +129,19 @@ let testimonials = [
     rating: 5
   }
 ];
+
+const getOrCreatePricingSettings = async () => {
+  let settings = await PricingSettings.findOne().sort({ createdAt: 1 });
+
+  if (!settings) {
+    settings = await PricingSettings.create({
+      convenienceChargePercentage: 5,
+      gstPercentage: 18,
+    });
+  }
+
+  return settings;
+};
 
 // Hero Content Management
 export const getHeroContent = async (req: AdminRequest, res: Response) => {
@@ -355,15 +374,50 @@ export const deleteHomepageTestimonial = async (req: AdminRequest, res: Response
   }
 };
 
+export const getPricingSettings = async (req: AdminRequest, res: Response) => {
+  try {
+    const settings = await getOrCreatePricingSettings();
+    res.json({
+      convenienceChargePercentage: settings.convenienceChargePercentage,
+      gstPercentage: settings.gstPercentage,
+    });
+  } catch (error) {
+    res.status(500).json({ error: "Failed to fetch pricing settings" });
+  }
+};
+
+export const updatePricingSettings = async (req: AdminRequest, res: Response) => {
+  try {
+    const validatedData = pricingSettingsSchema.parse(req.body);
+    const settings = await getOrCreatePricingSettings();
+
+    settings.convenienceChargePercentage = validatedData.convenienceChargePercentage;
+    settings.gstPercentage = validatedData.gstPercentage;
+    await settings.save();
+
+    res.json({
+      convenienceChargePercentage: settings.convenienceChargePercentage,
+      gstPercentage: settings.gstPercentage,
+    });
+  } catch (error) {
+    res.status(400).json({ error: "Invalid pricing settings data" });
+  }
+};
+
 // Get all content for frontend
 export const getAllContent = async (req: AdminRequest, res: Response) => {
   try {
+    const pricingSettings = await getOrCreatePricingSettings();
     res.json({
       hero: heroContent,
       stats,
       cultureHighlights,
       missionItems,
-      testimonials
+      testimonials,
+      pricingSettings: {
+        convenienceChargePercentage: pricingSettings.convenienceChargePercentage,
+        gstPercentage: pricingSettings.gstPercentage,
+      },
     });
   } catch (error) {
     res.status(500).json({ error: "Failed to fetch content" });

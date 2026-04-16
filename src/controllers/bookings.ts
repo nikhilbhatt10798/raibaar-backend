@@ -1,7 +1,7 @@
 import { Request, Response } from "express";
 import { z } from "zod";
 import { Booking, Property, HostProfile, Review, HostWallet } from "../models/index";
-import { calculatePaymentBreakdown } from "../utils/paymentCalculations";
+import { calculatePaymentBreakdown, getPricingConfig } from "../utils/paymentCalculations";
 import { differenceInDays } from "date-fns";
 
 const createBookingSchema = z.object({
@@ -44,9 +44,11 @@ export const createBooking = async (req: Request, res: Response): Promise<void> 
       return;
     }
 
-    // Calculate price with new payment breakdown (includes GST and platform charges)
+    const pricingConfig = await getPricingConfig();
+
+    // Calculate price with admin-controlled payment breakdown
     const basePrice = property.price * nights;
-    const pricing = calculatePaymentBreakdown(basePrice);
+    const pricing = calculatePaymentBreakdown(basePrice, pricingConfig);
 
     // Get host profile
     const hostProfile = await HostProfile.findById(property.hostId);
@@ -100,6 +102,8 @@ export const createBooking = async (req: Request, res: Response): Promise<void> 
           platformCharge: pricing.platformCharge,
           gstOnRoom: pricing.gstOnRoomCharge,
           gstOnPlatform: pricing.gstOnPlatformCharge,
+          convenienceChargePercentage: pricing.convenienceChargePercentage,
+          gstPercentage: pricing.gstPercentage,
           total: pricing.total,
         },
       },

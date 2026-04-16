@@ -1,6 +1,7 @@
 import mongoose from "mongoose";
 import dotenv from "dotenv";
-import { User, HostProfile, Property, Testimonial, Booking, Review } from "./models/index";
+import { User, HostProfile, Property, Booking, Review } from "./models/index";
+import { Testimonial } from "./models/Testimonial";
 import { hashPassword } from "./utils/auth";
 
 dotenv.config();

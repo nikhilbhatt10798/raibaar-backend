@@ -1,8 +1,8 @@
-const { Router } = require("express");
+const express = require("express");
 const { registerUser, loginUser, getCurrentUser, registerHost } = require("../controllers/auth");
 const { authMiddleware } = require("../middleware/index");
 
-const router = Router();
+const router = express.Router();
 
 router.post("/register", registerUser);
 router.post("/register-host", registerHost);

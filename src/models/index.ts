@@ -174,16 +174,10 @@ const hostWalletSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
-// Testimonial Schema
-const testimonialSchema = new mongoose.Schema(
+const pricingSettingsSchema = new mongoose.Schema(
   {
-    userId: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
-    name: { type: String, required: true },
-    avatar: String,
-    location: String,
-    quote: { type: String, required: true },
-    rating: { type: Number, required: true, min: 1, max: 5 },
-    approved: { type: Boolean, default: false },
+    convenienceChargePercentage: { type: Number, required: true, default: 5, min: 0, max: 100 },
+    gstPercentage: { type: Number, required: true, default: 18, min: 0, max: 100 },
   },
   { timestamps: true }
 );
@@ -195,4 +189,5 @@ export const Review = mongoose.model("Review", reviewSchema);
 export const Booking = mongoose.model("Booking", bookingSchema);
 export const Payment = mongoose.model("Payment", paymentSchema);
 export const HostWallet = mongoose.model("HostWallet", hostWalletSchema);
-export const Testimonial = mongoose.model("Testimonial", testimonialSchema);
+export const PricingSettings = mongoose.model("PricingSettings", pricingSettingsSchema);
+// Testimonial model is imported from models/Testimonial.ts to avoid duplicate compilation

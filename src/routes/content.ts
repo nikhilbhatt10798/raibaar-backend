@@ -18,6 +18,8 @@ const {
   addHomepageTestimonial,
   updateHomepageTestimonial,
   deleteHomepageTestimonial,
+  getPricingSettings,
+  updatePricingSettings,
   getAllContent,
 } = require("../controllers/content");
 const { authMiddleware } = require("../middleware");
@@ -54,5 +56,9 @@ router.get("/testimonials", getHomepageTestimonials);
 router.post("/testimonials", authMiddleware, addHomepageTestimonial);
 router.put("/testimonials/:id", authMiddleware, updateHomepageTestimonial);
 router.delete("/testimonials/:id", authMiddleware, deleteHomepageTestimonial);
+
+// Pricing Settings
+router.get("/pricing", getPricingSettings);
+router.put("/pricing", authMiddleware, updatePricingSettings);
 
 module.exports = router;

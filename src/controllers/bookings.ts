@@ -1,8 +1,68 @@
 import { Request, Response } from "express";
 import { z } from "zod";
-import { Booking, Property, HostProfile, Review, HostWallet } from "../models/index";
+import { Booking, Property, HostProfile, Review, HostWallet, User } from "../models/index";
 import { calculatePaymentBreakdown, getPricingConfig } from "../utils/paymentCalculations";
 import { differenceInDays } from "date-fns";
+
+const buildBookingCode = () => `RNB-${Date.now().toString().slice(-8)}`;
+const buildInvoiceNumber = () => `INV-${Date.now().toString().slice(-10)}`;
+
+const mapBookingResponse = (booking: any) => {
+  const property = booking.propertyId && typeof booking.propertyId === "object" ? booking.propertyId : null;
+  const guest = booking.userId && typeof booking.userId === "object" ? booking.userId : null;
+  const host = booking.hostId && typeof booking.hostId === "object" ? booking.hostId : null;
+
+  return {
+    _id: booking._id,
+    bookingCode: booking.bookingCode,
+    invoiceNumber: booking.invoiceNumber,
+    property: property
+      ? {
+          _id: property._id,
+          title: property.title,
+          village: property.village,
+          district: property.district,
+          state: property.state,
+          images: property.images,
+          price: property.price,
+        }
+      : booking.propertyId,
+    guest: guest
+      ? {
+          _id: guest._id,
+          firstName: guest.firstName,
+          lastName: guest.lastName,
+          email: guest.email,
+          phone: guest.phone,
+        }
+      : {
+          name: booking.guestName,
+          email: booking.guestEmail,
+          phone: booking.guestPhone,
+        },
+    host,
+    checkIn: booking.checkIn,
+    checkOut: booking.checkOut,
+    guests: booking.guests,
+    basePrice: booking.basePrice,
+    serviceFee: booking.serviceFee,
+    tax: booking.tax,
+    totalPrice: booking.totalPrice,
+    status: booking.status,
+    paymentStatus: booking.paymentStatus,
+    specialRequests: booking.specialRequests,
+    createdAt: booking.createdAt,
+    printable: {
+      invoiceNumber: booking.invoiceNumber,
+      bookingCode: booking.bookingCode,
+      guestName:
+        booking.guestName ||
+        `${guest?.firstName || ""} ${guest?.lastName || ""}`.trim(),
+      guestEmail: booking.guestEmail || guest?.email,
+      guestPhone: booking.guestPhone || guest?.phone,
+    },
+  };
+};
 
 const createBookingSchema = z.object({
   propertyId: z.string(),
@@ -45,6 +105,12 @@ export const createBooking = async (req: Request, res: Response): Promise<void> 
     }
 
     const pricingConfig = await getPricingConfig();
+    const user = await User.findById(req.userId).select("firstName lastName email phone");
+
+    if (!user) {
+      res.status(404).json({ error: "User not found" });
+      return;
+    }
 
     // Calculate price with admin-controlled payment breakdown
     const basePrice = property.price * nights;
@@ -71,6 +137,7 @@ export const createBooking = async (req: Request, res: Response): Promise<void> 
     }
 
     const booking = new Booking({
+      bookingCode: buildBookingCode(),
       propertyId,
       userId: req.userId,
       hostId: property.hostId,
@@ -82,6 +149,10 @@ export const createBooking = async (req: Request, res: Response): Promise<void> 
       tax: pricing.gstOnRoomCharge + pricing.gstOnPlatformCharge,
       totalPrice: pricing.total,
       specialRequests,
+      guestName: `${user.firstName || ""} ${user.lastName || ""}`.trim(),
+      guestEmail: user.email,
+      guestPhone: user.phone,
+      invoiceNumber: buildInvoiceNumber(),
       status: "pending",
       paymentStatus: "pending",
     });
@@ -92,6 +163,8 @@ export const createBooking = async (req: Request, res: Response): Promise<void> 
       message: "Booking created successfully",
       booking: {
         _id: booking._id,
+        bookingCode: booking.bookingCode,
+        invoiceNumber: booking.invoiceNumber,
         propertyId: booking.propertyId,
         checkIn: booking.checkIn,
         checkOut: booking.checkOut,
@@ -122,9 +195,10 @@ export const getBookings = async (req: Request, res: Response): Promise<void> =>
   try {
     const bookings = await Booking.find({ userId: req.userId })
       .populate("propertyId")
+      .populate("userId", "firstName lastName email phone")
       .sort({ createdAt: -1 });
 
-    res.json(bookings);
+    res.json(bookings.map(mapBookingResponse));
   } catch (error: any) {
     res.status(500).json({ error: error.message });
   }
@@ -140,7 +214,7 @@ export const getBookingById = async (req: Request, res: Response): Promise<void>
       return;
     }
 
-    res.json(booking);
+    res.json(mapBookingResponse(booking));
   } catch (error: any) {
     res.status(500).json({ error: error.message });
   }
@@ -174,11 +248,13 @@ export const updateBookingStatus = async (req: Request, res: Response): Promise<
       return;
     }
 
-    const updated = await Booking.findByIdAndUpdate(id, { status }, { new: true }).populate("propertyId");
+    const updated = await Booking.findByIdAndUpdate(id, { status }, { new: true })
+      .populate("propertyId")
+      .populate("userId", "firstName lastName email phone");
 
     res.json({
       message: `Booking ${status} successfully`,
-      booking: updated,
+      booking: updated ? mapBookingResponse(updated) : null,
     });
   } catch (error: any) {
     res.status(500).json({ error: error.message });
@@ -196,7 +272,10 @@ export const cancelBooking = async (req: Request, res: Response): Promise<void> 
       return;
     }
 
-    if (booking.userId.toString() !== req.userId && booking.hostId.toString() !== req.userId) {
+    const hostProfile = await HostProfile.findOne({ userId: req.userId });
+    const isHostOwner = hostProfile?._id?.toString() === booking.hostId.toString();
+
+    if (booking.userId.toString() !== req.userId && !isHostOwner && req.role !== "admin") {
       res.status(403).json({ error: "Unauthorized" });
       return;
     }
@@ -205,7 +284,11 @@ export const cancelBooking = async (req: Request, res: Response): Promise<void> 
     booking.cancellationReason = cancellationReason;
     await booking.save();
 
-    res.json({ message: "Booking cancelled successfully", booking });
+    const populated = await Booking.findById(booking._id)
+      .populate("propertyId")
+      .populate("userId", "firstName lastName email phone");
+
+    res.json({ message: "Booking cancelled successfully", booking: populated ? mapBookingResponse(populated) : booking });
   } catch (error: any) {
     res.status(500).json({ error: error.message });
   }
@@ -308,7 +391,7 @@ export const getHostBookings = async (req: Request, res: Response): Promise<void
     };
 
     res.json({
-      data: status && status !== "all" ? filter.status === status ? bookings : [] : bookings,
+      data: (status && status !== "all" ? bookings.filter((booking) => booking.status === status) : bookings).map(mapBookingResponse),
       stats: {
         pending: grouped.pending.length,
         confirmed: grouped.confirmed.length,

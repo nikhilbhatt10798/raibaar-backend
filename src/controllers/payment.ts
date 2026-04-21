@@ -2,8 +2,8 @@ import { Request, Response } from "express";
 import { z } from "zod";
 import Razorpay from "razorpay";
 import { Booking, Payment, HostProfile, User, HostWallet } from "../models/index";
-import { calculatePaymentBreakdown } from "../utils/paymentCalculations";
 import crypto from "crypto";
+import { sendBookingConfirmationNotification } from "../utils/notifications";
 
 // Initialize Razorpay
 let razorpay: any = null;
@@ -101,6 +101,7 @@ export const createPaymentForBooking = async (
       basePrice: booking.basePrice,
       serviceFee: booking.serviceFee,
       tax: booking.tax,
+      receiptNumber: `PAY-${Date.now().toString().slice(-10)}`,
     });
 
     await payment.save();
@@ -175,10 +176,11 @@ export const handlePaymentCallback = async (
       await payment.save();
 
       // Update booking status
-      const booking = await Booking.findById(payment.bookingId);
+      const booking = await Booking.findById(payment.bookingId).populate("propertyId");
       if (booking) {
         booking.status = "confirmed";
         booking.paymentStatus = "completed";
+        booking.confirmationSentAt = new Date();
         await booking.save();
 
         // Add earnings to host wallet
@@ -190,11 +192,27 @@ export const handlePaymentCallback = async (
           hostWallet.totalEarnings += payment.basePrice;
           hostWallet.save();
         }
+
+        const guestUser = await User.findById(booking.userId);
+        const propertyTitle = (booking.propertyId as any)?.title || "Property";
+
+        if (guestUser?.email) {
+          await sendBookingConfirmationNotification({
+            email: guestUser.email,
+            guestName: `${guestUser.firstName} ${guestUser.lastName}`.trim(),
+            bookingCode: booking.bookingCode || booking._id.toString(),
+            propertyTitle,
+            totalAmount: booking.totalPrice,
+            checkIn: booking.checkIn.toLocaleDateString("en-IN"),
+            checkOut: booking.checkOut.toLocaleDateString("en-IN"),
+          });
+        }
       }
 
       res.json({
         success: true,
         message: "Payment verified and booking confirmed",
+        bookingId: payment.bookingId,
       });
     } else if (razorpayPayment.status === "failed") {
       payment.status = "failed";
@@ -243,7 +261,17 @@ export const getPaymentDetails = async (
       return;
     }
 
-    res.json(payment);
+    res.json({
+      _id: payment._id,
+      amount: payment.amount,
+      currency: payment.currency,
+      status: payment.status,
+      bookingId: payment.bookingId,
+      razorpayOrderId: payment.razorpayOrderId,
+      razorpayPaymentId: payment.razorpayPaymentId,
+      receiptNumber: payment.receiptNumber,
+      createdAt: payment.createdAt,
+    });
   } catch (error: any) {
     res.status(500).json({ error: error.message });
   }

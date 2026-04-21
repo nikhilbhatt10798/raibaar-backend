@@ -20,6 +20,8 @@ const {
   updateProperty,
   createUser,
   approveBooking,
+  getPricingSettings,
+  updatePricingSettings,
 } = require("../controllers/admin");
 const { authMiddleware } = require("../middleware");
 
@@ -27,6 +29,8 @@ const router = express.Router();
 
 // Dashboard Stats
 router.get("/stats", authMiddleware, getDashboardStats);
+router.get("/pricing", authMiddleware, getPricingSettings);
+router.put("/pricing", authMiddleware, updatePricingSettings);
 
 // User Management
 router.get("/users", authMiddleware, getAllUsers);

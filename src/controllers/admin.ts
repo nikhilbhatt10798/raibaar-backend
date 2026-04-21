@@ -1,14 +1,32 @@
 import { Request, Response } from "express";
-import { User, Property, Booking, Review, Testimonial } from "../models";
+import { User, Property, Booking, Review, Testimonial, PricingSettings } from "../models";
 import { z } from "zod";
+import { hashPassword } from "../utils/auth";
+
+const pricingSchema = z.object({
+  convenienceChargePercentage: z.number().min(0).max(100),
+  gstPercentage: z.number().min(0).max(100),
+});
+
+const assertAdmin = (req: AdminRequest, res: Response) => {
+  if (req.role !== "admin") {
+    res.status(403).json({ error: "Admin access required" });
+    return false;
+  }
+
+  return true;
+};
 
 // Type for admin request with user
 interface AdminRequest extends Request {
   user?: any;
+  role?: string;
 }
 
 export const getDashboardStats = async (req: AdminRequest, res: Response) => {
   try {
+    if (!assertAdmin(req, res)) return;
+
     const usersCount = await User.countDocuments();
     const hostsCount = await User.countDocuments({ role: "host" });
     const propertiesCount = await Property.countDocuments();
@@ -20,8 +38,12 @@ export const getDashboardStats = async (req: AdminRequest, res: Response) => {
     const reviewsCount = await Review.countDocuments();
 
     // Calculate total revenue from completed bookings
-    const bookings = await Booking.find({ status: "completed" }).select("totalPrice");
+    const bookings = await Booking.find({ paymentStatus: "completed" }).select("totalPrice");
     const totalRevenue = bookings.reduce((sum, booking) => sum + booking.totalPrice, 0);
+    const pricingSettings = (await PricingSettings.findOne().sort({ createdAt: -1 })) || {
+      convenienceChargePercentage: 5,
+      gstPercentage: 18,
+    };
 
     res.json({
       users: usersCount,
@@ -32,6 +54,7 @@ export const getDashboardStats = async (req: AdminRequest, res: Response) => {
       pendingBookings,
       reviews: reviewsCount,
       revenue: totalRevenue,
+      pricingSettings,
     });
   } catch (error) {
     res.status(500).json({ error: "Failed to fetch dashboard stats" });
@@ -40,6 +63,8 @@ export const getDashboardStats = async (req: AdminRequest, res: Response) => {
 
 export const getAllUsers = async (req: AdminRequest, res: Response) => {
   try {
+    if (!assertAdmin(req, res)) return;
+
     const { search, role } = req.query;
     const query: any = {};
 
@@ -67,6 +92,8 @@ export const getAllUsers = async (req: AdminRequest, res: Response) => {
 
 export const deleteUser = async (req: AdminRequest, res: Response) => {
   try {
+    if (!assertAdmin(req, res)) return;
+
     const { userId } = req.params;
 
     // Don't allow deleting if it's the only admin
@@ -87,6 +114,8 @@ export const deleteUser = async (req: AdminRequest, res: Response) => {
 
 export const getAllTestimonials = async (req: AdminRequest, res: Response) => {
   try {
+    if (!assertAdmin(req, res)) return;
+
     const { status } = req.query;
     const query: any = {};
 
@@ -105,6 +134,8 @@ export const getAllTestimonials = async (req: AdminRequest, res: Response) => {
 
 export const approveTestimonial = async (req: AdminRequest, res: Response) => {
   try {
+    if (!assertAdmin(req, res)) return;
+
     const { testimonialId } = req.params;
 
     const testimonial = await Testimonial.findByIdAndUpdate(
@@ -121,6 +152,8 @@ export const approveTestimonial = async (req: AdminRequest, res: Response) => {
 
 export const rejectTestimonial = async (req: AdminRequest, res: Response) => {
   try {
+    if (!assertAdmin(req, res)) return;
+
     const { testimonialId } = req.params;
 
     await Testimonial.findByIdAndDelete(testimonialId);
@@ -132,6 +165,8 @@ export const rejectTestimonial = async (req: AdminRequest, res: Response) => {
 
 export const updateTestimonial = async (req: AdminRequest, res: Response) => {
   try {
+    if (!assertAdmin(req, res)) return;
+
     const { testimonialId } = req.params;
     const { comment, rating } = req.body;
 
@@ -149,6 +184,8 @@ export const updateTestimonial = async (req: AdminRequest, res: Response) => {
 
 export const getAllReviews = async (req: AdminRequest, res: Response) => {
   try {
+    if (!assertAdmin(req, res)) return;
+
     const reviews = await Review.find()
       .populate("propertyId", "title")
       .populate("userId", "firstName lastName email")
@@ -162,6 +199,8 @@ export const getAllReviews = async (req: AdminRequest, res: Response) => {
 
 export const deleteReview = async (req: AdminRequest, res: Response) => {
   try {
+    if (!assertAdmin(req, res)) return;
+
     const { reviewId } = req.params;
 
     await Review.findByIdAndDelete(reviewId);
@@ -173,6 +212,8 @@ export const deleteReview = async (req: AdminRequest, res: Response) => {
 
 export const getProperties = async (req: AdminRequest, res: Response) => {
   try {
+    if (!assertAdmin(req, res)) return;
+
     const properties = await Property.find()
       .sort({ createdAt: -1 });
 
@@ -184,6 +225,8 @@ export const getProperties = async (req: AdminRequest, res: Response) => {
 
 export const togglePropertyFeature = async (req: AdminRequest, res: Response) => {
   try {
+    if (!assertAdmin(req, res)) return;
+
     const { propertyId } = req.params;
 
     const property = await Property.findById(propertyId);
@@ -202,6 +245,8 @@ export const togglePropertyFeature = async (req: AdminRequest, res: Response) =>
 
 export const togglePropertyActive = async (req: AdminRequest, res: Response) => {
   try {
+    if (!assertAdmin(req, res)) return;
+
     const { propertyId } = req.params;
 
     const property = await Property.findById(propertyId);
@@ -220,6 +265,8 @@ export const togglePropertyActive = async (req: AdminRequest, res: Response) => 
 
 export const deleteProperty = async (req: AdminRequest, res: Response) => {
   try {
+    if (!assertAdmin(req, res)) return;
+
     const { propertyId } = req.params;
 
     await Property.findByIdAndDelete(propertyId);
@@ -231,6 +278,8 @@ export const deleteProperty = async (req: AdminRequest, res: Response) => {
 
 export const getAllBookings = async (req: AdminRequest, res: Response) => {
   try {
+    if (!assertAdmin(req, res)) return;
+
     const { status } = req.query;
     const query: any = {};
 
@@ -251,6 +300,8 @@ export const getAllBookings = async (req: AdminRequest, res: Response) => {
 
 export const updateBookingStatus = async (req: AdminRequest, res: Response) => {
   try {
+    if (!assertAdmin(req, res)) return;
+
     const { bookingId } = req.params;
     const { status } = req.body;
 
@@ -278,7 +329,7 @@ export const createAdminUser = async (req: AdminRequest, res: Response) => {
 
     const user = new User({
       email,
-      password,
+      password: await hashPassword(password),
       firstName,
       lastName,
       role: "admin",
@@ -304,6 +355,8 @@ export const createAdminUser = async (req: AdminRequest, res: Response) => {
 
 export const addProperty = async (req: AdminRequest, res: Response) => {
   try {
+    if (!assertAdmin(req, res)) return;
+
     const { title, description, city, price, amenities, image, hostId } = req.body;
 
     const property = new Property({
@@ -327,6 +380,8 @@ export const addProperty = async (req: AdminRequest, res: Response) => {
 
 export const updateProperty = async (req: AdminRequest, res: Response) => {
   try {
+    if (!assertAdmin(req, res)) return;
+
     const { propertyId } = req.params;
     const updates = req.body;
 
@@ -339,6 +394,8 @@ export const updateProperty = async (req: AdminRequest, res: Response) => {
 
 export const createUser = async (req: AdminRequest, res: Response) => {
   try {
+    if (!assertAdmin(req, res)) return;
+
     const { firstName, lastName, email, password, role } = req.body;
 
     // Check if user exists
@@ -351,7 +408,7 @@ export const createUser = async (req: AdminRequest, res: Response) => {
       firstName,
       lastName,
       email,
-      password,
+      password: await hashPassword(password),
       role: role || "guest",
       isVerified: true,
     });
@@ -375,6 +432,8 @@ export const createUser = async (req: AdminRequest, res: Response) => {
 
 export const approveBooking = async (req: AdminRequest, res: Response) => {
   try {
+    if (!assertAdmin(req, res)) return;
+
     const { bookingId } = req.params;
 
     const booking = await Booking.findByIdAndUpdate(
@@ -386,6 +445,49 @@ export const approveBooking = async (req: AdminRequest, res: Response) => {
     res.json(booking);
   } catch (error) {
     res.status(500).json({ error: "Failed to approve booking" });
+  }
+};
+
+export const getPricingSettings = async (req: AdminRequest, res: Response) => {
+  try {
+    if (!assertAdmin(req, res)) return;
+
+    let settings = await PricingSettings.findOne().sort({ createdAt: -1 });
+    if (!settings) {
+      settings = await PricingSettings.create({
+        convenienceChargePercentage: 5,
+        gstPercentage: 18,
+      });
+    }
+
+    res.json(settings);
+  } catch (error) {
+    res.status(500).json({ error: "Failed to fetch pricing settings" });
+  }
+};
+
+export const updatePricingSettings = async (req: AdminRequest, res: Response) => {
+  try {
+    if (!assertAdmin(req, res)) return;
+
+    const data = pricingSchema.parse(req.body);
+
+    const existing = await PricingSettings.findOne().sort({ createdAt: -1 });
+    const settings = existing
+      ? await PricingSettings.findByIdAndUpdate(existing._id, data, { new: true })
+      : await PricingSettings.create(data);
+
+    res.json({
+      message: "Pricing settings updated successfully",
+      settings,
+    });
+  } catch (error: any) {
+    if (error instanceof z.ZodError) {
+      res.status(400).json({ error: error.errors });
+      return;
+    }
+
+    res.status(500).json({ error: "Failed to update pricing settings" });
   }
 };
 

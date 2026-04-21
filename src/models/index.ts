@@ -11,6 +11,10 @@ const userSchema = new mongoose.Schema(
     avatar: String,
     role: { type: String, enum: ["guest", "host", "admin"], default: "guest" },
     isVerified: { type: Boolean, default: false },
+    otpCodeHash: String,
+    otpExpiresAt: Date,
+    otpLastSentAt: Date,
+    lastLoginAt: Date,
   },
   { timestamps: true }
 );
@@ -88,6 +92,7 @@ const reviewSchema = new mongoose.Schema(
 // Booking Schema
 const bookingSchema = new mongoose.Schema(
   {
+    bookingCode: { type: String, unique: true, sparse: true },
     propertyId: { type: mongoose.Schema.Types.ObjectId, ref: "Property", required: true },
     userId: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
     hostId: { type: mongoose.Schema.Types.ObjectId, ref: "HostProfile", required: true },
@@ -111,6 +116,11 @@ const bookingSchema = new mongoose.Schema(
     paymentId: { type: mongoose.Schema.Types.ObjectId, ref: "Payment" },
     specialRequests: String,
     cancellationReason: String,
+    guestName: String,
+    guestEmail: String,
+    guestPhone: String,
+    invoiceNumber: String,
+    confirmationSentAt: Date,
   },
   { timestamps: true }
 );
@@ -143,6 +153,8 @@ const paymentSchema = new mongoose.Schema(
     refundId: String,
     failureReason: String,
     refundedAt: Date,
+    receiptNumber: String,
+    paymentMethod: String,
   },
   { timestamps: true }
 );

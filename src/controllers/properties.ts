@@ -47,7 +47,7 @@ export const getProperties = async (req: Request, res: Response): Promise<void> 
   try {
     const { location, minPrice, maxPrice, amenities, sortBy, page = 1, limit = 20 } = req.query;
 
-    let filter: any = { available: true };
+    let filter: any = { available: true, active: true };
 
     if (location) {
       filter.village = new RegExp(location as string, "i");
@@ -92,7 +92,7 @@ export const getPropertyById = async (req: Request, res: Response): Promise<void
     const { id } = req.params;
     const property = await Property.findById(id).populate("hostId");
 
-    if (!property) {
+    if (!property || !property.active || !property.available) {
       res.status(404).json({ error: "Property not found" });
       return;
     }
@@ -141,11 +141,21 @@ export const updateProperty = async (req: Request, res: Response): Promise<void>
 
 export const getFeaturedProperties = async (req: Request, res: Response): Promise<void> => {
   try {
-    const properties = await Property.find({ featured: true, available: true })
+    const properties = await Property.find({ featured: true, available: true, active: true })
       .limit(10)
       .populate("hostId", "bio village verified yearsHosting");
 
     res.json(properties);
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
+export const getLocations = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const locations = await Property.distinct("village", { available: true, active: true });
+    const sortedLocations = locations.sort();
+    res.json(sortedLocations);
   } catch (error: any) {
     res.status(500).json({ error: error.message });
   }

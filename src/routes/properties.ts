@@ -6,11 +6,13 @@ const {
   getPropertyReviews,
   updateProperty,
   getFeaturedProperties,
+  getLocations,
 } = require("../controllers/properties");
 const { authMiddleware } = require("../middleware/index");
 
 const router = express.Router();
 
+router.get("/locations", getLocations);
 router.get("/featured", getFeaturedProperties);
 router.get("/", getProperties);
 router.get("/:id", getPropertyById);

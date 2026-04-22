@@ -1,12 +1,22 @@
 import { Request, Response } from "express";
-import { User, Property, Booking, Review, Testimonial, PricingSettings } from "../models";
+import { User, Property, Booking, Review, Testimonial, PricingSettings, Payment } from "../models";
 import { z } from "zod";
 import { hashPassword } from "../utils/auth";
+import Razorpay from "razorpay";
 
 const pricingSchema = z.object({
   convenienceChargePercentage: z.number().min(0).max(100),
   gstPercentage: z.number().min(0).max(100),
 });
+
+// Initialize Razorpay
+let razorpay: any = null;
+if (process.env.RAZORPAY_KEY_ID && process.env.RAZORPAY_KEY_SECRET) {
+  razorpay = new Razorpay({
+    key_id: process.env.RAZORPAY_KEY_ID,
+    key_secret: process.env.RAZORPAY_KEY_SECRET,
+  });
+}
 
 const assertAdmin = (req: AdminRequest, res: Response) => {
   if (req.role !== "admin") {
@@ -303,17 +313,53 @@ export const updateBookingStatus = async (req: AdminRequest, res: Response) => {
     if (!assertAdmin(req, res)) return;
 
     const { bookingId } = req.params;
-    const { status } = req.body;
+    const { status, cancellationReason } = req.body;
 
-    const booking = await Booking.findByIdAndUpdate(
-      bookingId,
-      { status },
-      { new: true }
-    );
+    const booking = await Booking.findById(bookingId);
+    if (!booking) {
+      res.status(404).json({ error: "Booking not found" });
+      return;
+    }
 
-    res.json(booking);
-  } catch (error) {
-    res.status(500).json({ error: "Failed to update booking status" });
+    // Handle cancellation with refund
+    if (status === "cancelled" && booking.status !== "cancelled") {
+      // Check if payment was made
+      if (booking.paymentStatus === "completed") {
+        try {
+          // Find the payment record
+          const payment = await Payment.findById(booking.paymentId);
+          if (payment && payment.razorpayPaymentId && razorpay) {
+            // Process refund through Razorpay
+            const refund = await razorpay.payments.refund(payment.razorpayPaymentId, {
+              amount: Math.round(booking.totalPrice * 100), // Convert to paise
+              notes: {
+                bookingId: bookingId.toString(),
+                reason: cancellationReason || "Admin requested cancellation",
+              },
+            });
+
+            // Update payment status
+            payment.status = "refunded";
+            payment.refundId = refund.id;
+            await payment.save();
+          }
+        } catch (refundError: any) {
+          console.error("Refund processing error:", refundError);
+          // Continue with booking cancellation even if refund fails
+        }
+      }
+
+      booking.paymentStatus = "refunded";
+      booking.cancellationReason = cancellationReason || "Admin requested cancellation";
+    }
+
+    booking.status = status;
+    await booking.save();
+
+    const updatedBooking = await booking.populate("propertyId userId");
+    res.json(updatedBooking);
+  } catch (error: any) {
+    res.status(500).json({ error: error.message || "Failed to update booking status" });
   }
 };
 

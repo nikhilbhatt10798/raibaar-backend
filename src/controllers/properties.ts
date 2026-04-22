@@ -1,6 +1,7 @@
 import { Request, Response } from "express";
 import { z } from "zod";
 import { Property, Review, HostProfile } from "../models/index";
+import { logActivity } from "../utils/activityLog";
 
 const createPropertySchema = z.object({
   title: z.string().min(1),
@@ -33,6 +34,17 @@ export const createProperty = async (req: Request, res: Response): Promise<void>
     });
 
     await property.save();
+
+    await logActivity({
+      actorId: req.userId,
+      actorRole: req.role,
+      action: "property_created",
+      entityType: "property",
+      entityId: property._id.toString(),
+      entityLabel: property.title,
+      description: `${property.title} was created by host`,
+    });
+
     res.status(201).json(property);
   } catch (error: any) {
     if (error instanceof z.ZodError) {
@@ -133,6 +145,19 @@ export const updateProperty = async (req: Request, res: Response): Promise<void>
     }
 
     const updated = await Property.findByIdAndUpdate(id, data, { new: true });
+
+    if (updated) {
+      await logActivity({
+        actorId: req.userId,
+        actorRole: req.role,
+        action: "property_updated",
+        entityType: "property",
+        entityId: updated._id.toString(),
+        entityLabel: updated.title,
+        description: `${updated.title} was updated by host`,
+      });
+    }
+
     res.json(updated);
   } catch (error: any) {
     res.status(500).json({ error: error.message });

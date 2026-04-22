@@ -1,8 +1,9 @@
 import { Request, Response } from "express";
-import { User, Property, Booking, Review, Testimonial, PricingSettings, Payment } from "../models";
+import { User, Property, Booking, Review, Testimonial, PricingSettings, Payment, ActivityLog } from "../models";
 import { z } from "zod";
 import { hashPassword } from "../utils/auth";
 import Razorpay from "razorpay";
+import { logActivity } from "../utils/activityLog";
 
 const pricingSchema = z.object({
   convenienceChargePercentage: z.number().min(0).max(100),
@@ -30,6 +31,7 @@ const assertAdmin = (req: AdminRequest, res: Response) => {
 // Type for admin request with user
 interface AdminRequest extends Request {
   user?: any;
+  userId?: string;
   role?: string;
 }
 
@@ -116,6 +118,19 @@ export const deleteUser = async (req: AdminRequest, res: Response) => {
     }
 
     await User.findByIdAndDelete(userId);
+
+    if (user) {
+      await logActivity({
+        actorId: req.userId,
+        actorRole: req.role,
+        action: "user_deleted",
+        entityType: "user",
+        entityId: user._id.toString(),
+        entityLabel: user.email,
+        description: `${user.email} was deleted by admin`,
+      });
+    }
+
     res.json({ message: "User deleted successfully" });
   } catch (error) {
     res.status(500).json({ error: "Failed to delete user" });
@@ -154,6 +169,18 @@ export const approveTestimonial = async (req: AdminRequest, res: Response) => {
       { new: true }
     );
 
+    if (testimonial) {
+      await logActivity({
+        actorId: req.userId,
+        actorRole: req.role,
+        action: "testimonial_approved",
+        entityType: "testimonial",
+        entityId: testimonial._id.toString(),
+        entityLabel: testimonial.name,
+        description: `Testimonial from ${testimonial.name} was approved by admin`,
+      });
+    }
+
     res.json(testimonial);
   } catch (error) {
     res.status(500).json({ error: "Failed to approve testimonial" });
@@ -166,7 +193,20 @@ export const rejectTestimonial = async (req: AdminRequest, res: Response) => {
 
     const { testimonialId } = req.params;
 
-    await Testimonial.findByIdAndDelete(testimonialId);
+    const testimonial = await Testimonial.findByIdAndDelete(testimonialId);
+
+    if (testimonial) {
+      await logActivity({
+        actorId: req.userId,
+        actorRole: req.role,
+        action: "testimonial_rejected",
+        entityType: "testimonial",
+        entityId: testimonial._id.toString(),
+        entityLabel: testimonial.name,
+        description: `Testimonial from ${testimonial.name} was rejected by admin`,
+      });
+    }
+
     res.json({ message: "Testimonial rejected" });
   } catch (error) {
     res.status(500).json({ error: "Failed to reject testimonial" });
@@ -185,6 +225,18 @@ export const updateTestimonial = async (req: AdminRequest, res: Response) => {
       { comment, rating },
       { new: true }
     );
+
+    if (testimonial) {
+      await logActivity({
+        actorId: req.userId,
+        actorRole: req.role,
+        action: "testimonial_updated",
+        entityType: "testimonial",
+        entityId: testimonial._id.toString(),
+        entityLabel: testimonial.name,
+        description: `Testimonial from ${testimonial.name} was updated by admin`,
+      });
+    }
 
     res.json(testimonial);
   } catch (error) {
@@ -213,7 +265,20 @@ export const deleteReview = async (req: AdminRequest, res: Response) => {
 
     const { reviewId } = req.params;
 
-    await Review.findByIdAndDelete(reviewId);
+    const review = await Review.findByIdAndDelete(reviewId);
+
+    if (review) {
+      await logActivity({
+        actorId: req.userId,
+        actorRole: req.role,
+        action: "review_deleted",
+        entityType: "review",
+        entityId: review._id.toString(),
+        entityLabel: review.propertyId?.toString(),
+        description: "A review was deleted by admin",
+      });
+    }
+
     res.json({ message: "Review deleted successfully" });
   } catch (error) {
     res.status(500).json({ error: "Failed to delete review" });
@@ -233,6 +298,52 @@ export const getProperties = async (req: AdminRequest, res: Response) => {
   }
 };
 
+export const getPropertyById = async (req: AdminRequest, res: Response) => {
+  try {
+    if (!assertAdmin(req, res)) return;
+
+    const { propertyId } = req.params;
+
+    const property = await Property.findById(propertyId).populate({
+      path: "hostId",
+      populate: {
+        path: "userId",
+        model: "User",
+        select: "firstName lastName email phone",
+      },
+    });
+
+    if (!property) {
+      return res.status(404).json({ error: "Property not found" });
+    }
+
+    res.json(property);
+  } catch (error) {
+    res.status(500).json({ error: "Failed to fetch property" });
+  }
+};
+
+export const getActivityLogs = async (req: AdminRequest, res: Response) => {
+  try {
+    if (!assertAdmin(req, res)) return;
+
+    const { actorRole, entityType, action, limit = "100" } = req.query;
+    const query: any = {};
+
+    if (actorRole) query.actorRole = actorRole;
+    if (entityType) query.entityType = entityType;
+    if (action) query.action = action;
+
+    const logs = await ActivityLog.find(query)
+      .sort({ createdAt: -1 })
+      .limit(Math.min(Number(limit) || 100, 500));
+
+    res.json(logs);
+  } catch (error) {
+    res.status(500).json({ error: "Failed to fetch activity logs" });
+  }
+};
+
 export const togglePropertyFeature = async (req: AdminRequest, res: Response) => {
   try {
     if (!assertAdmin(req, res)) return;
@@ -246,6 +357,16 @@ export const togglePropertyFeature = async (req: AdminRequest, res: Response) =>
 
     property.featured = !property.featured;
     await property.save();
+
+    await logActivity({
+      actorId: req.userId,
+      actorRole: req.role,
+      action: property.featured ? "property_featured" : "property_unfeatured",
+      entityType: "property",
+      entityId: property._id.toString(),
+      entityLabel: property.title,
+      description: `${property.title} was ${property.featured ? "featured" : "unfeatured"} by admin`,
+    });
 
     res.json(property);
   } catch (error) {
@@ -267,6 +388,16 @@ export const togglePropertyActive = async (req: AdminRequest, res: Response) => 
     property.active = !property.active;
     await property.save();
 
+    await logActivity({
+      actorId: req.userId,
+      actorRole: req.role,
+      action: property.active ? "property_activated" : "property_deactivated",
+      entityType: "property",
+      entityId: property._id.toString(),
+      entityLabel: property.title,
+      description: `${property.title} was ${property.active ? "activated" : "deactivated"} by admin`,
+    });
+
     res.json(property);
   } catch (error) {
     res.status(500).json({ error: "Failed to toggle property active status" });
@@ -279,7 +410,20 @@ export const deleteProperty = async (req: AdminRequest, res: Response) => {
 
     const { propertyId } = req.params;
 
-    await Property.findByIdAndDelete(propertyId);
+    const property = await Property.findByIdAndDelete(propertyId);
+
+    if (property) {
+      await logActivity({
+        actorId: req.userId,
+        actorRole: req.role,
+        action: "property_deleted",
+        entityType: "property",
+        entityId: property._id.toString(),
+        entityLabel: property.title,
+        description: `${property.title} was deleted by admin`,
+      });
+    }
+
     res.json({ message: "Property deleted successfully" });
   } catch (error) {
     res.status(500).json({ error: "Failed to delete property" });
@@ -356,6 +500,20 @@ export const updateBookingStatus = async (req: AdminRequest, res: Response) => {
     booking.status = status;
     await booking.save();
 
+    await logActivity({
+      actorId: req.userId,
+      actorRole: req.role,
+      action: `booking_${status}`,
+      entityType: "booking",
+      entityId: booking._id.toString(),
+      entityLabel: booking.bookingCode || booking._id.toString(),
+      description: `Booking ${booking.bookingCode || booking._id} was updated to ${status} by admin`,
+      metadata: {
+        cancellationReason,
+        paymentStatus: booking.paymentStatus,
+      },
+    });
+
     const updatedBooking = await booking.populate("propertyId userId");
     res.json(updatedBooking);
   } catch (error: any) {
@@ -383,6 +541,15 @@ export const createAdminUser = async (req: AdminRequest, res: Response) => {
     });
 
     await user.save();
+
+    await logActivity({
+      actorRole: "system",
+      action: "admin_created",
+      entityType: "user",
+      entityId: user._id.toString(),
+      entityLabel: user.email,
+      description: `Admin account ${user.email} was created`,
+    });
 
     res.json({
       message: "Admin user created successfully",
@@ -418,6 +585,17 @@ export const addProperty = async (req: AdminRequest, res: Response) => {
     });
 
     await property.save();
+
+    await logActivity({
+      actorId: req.userId,
+      actorRole: req.role,
+      action: "property_created",
+      entityType: "property",
+      entityId: property._id.toString(),
+      entityLabel: property.title,
+      description: `${property.title} was created by admin`,
+    });
+
     res.json(property);
   } catch (error) {
     res.status(500).json({ error: "Failed to add property" });
@@ -432,6 +610,19 @@ export const updateProperty = async (req: AdminRequest, res: Response) => {
     const updates = req.body;
 
     const property = await Property.findByIdAndUpdate(propertyId, updates, { new: true });
+
+    if (property) {
+      await logActivity({
+        actorId: req.userId,
+        actorRole: req.role,
+        action: "property_updated",
+        entityType: "property",
+        entityId: property._id.toString(),
+        entityLabel: property.title,
+        description: `${property.title} was updated by admin`,
+      });
+    }
+
     res.json(property);
   } catch (error) {
     res.status(500).json({ error: "Failed to update property" });
@@ -460,6 +651,19 @@ export const createUser = async (req: AdminRequest, res: Response) => {
     });
 
     await user.save();
+
+    await logActivity({
+      actorId: req.userId,
+      actorRole: req.role,
+      action: "user_created",
+      entityType: "user",
+      entityId: user._id.toString(),
+      entityLabel: user.email,
+      description: `${user.email} was created by admin`,
+      metadata: {
+        createdRole: user.role,
+      },
+    });
 
     res.json({
       message: "User created successfully",
@@ -522,6 +726,17 @@ export const updatePricingSettings = async (req: AdminRequest, res: Response) =>
     const settings = existing
       ? await PricingSettings.findByIdAndUpdate(existing._id, data, { new: true })
       : await PricingSettings.create(data);
+
+    await logActivity({
+      actorId: req.userId,
+      actorRole: req.role,
+      action: "pricing_updated",
+      entityType: "settings",
+      entityId: settings?._id?.toString(),
+      entityLabel: "Pricing settings",
+      description: "Pricing settings were updated by admin",
+      metadata: data,
+    });
 
     res.json({
       message: "Pricing settings updated successfully",

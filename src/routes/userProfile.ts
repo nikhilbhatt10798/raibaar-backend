@@ -6,6 +6,7 @@ const {
   getHostProfile,
   updateHostProfile,
   getHostProperties,
+  getHostPropertyById,
   getHostBookings,
   updatePassword,
 } = require("../controllers/userProfile");
@@ -23,6 +24,7 @@ router.put("/password", authMiddleware, updatePassword);
 router.get("/host/profile", authMiddleware, getHostProfile);
 router.put("/host/profile", authMiddleware, updateHostProfile);
 router.get("/host/properties", authMiddleware, getHostProperties);
+router.get("/host/properties/:id", authMiddleware, getHostPropertyById);
 router.get("/host/bookings", authMiddleware, getHostBookings);
 
 module.exports = router;

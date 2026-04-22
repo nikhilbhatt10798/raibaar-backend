@@ -1,6 +1,7 @@
 import { Request, Response } from "express";
 import { User, HostProfile, Booking, Property } from "../models/index";
 import { hashPassword } from "../utils/auth";
+import { logActivity } from "../utils/activityLog";
 
 // Get user profile
 export const getUserProfile = async (req: Request, res: Response): Promise<void> => {
@@ -31,6 +32,16 @@ export const updateUserProfile = async (req: Request, res: Response): Promise<vo
       res.status(404).json({ error: "User not found" });
       return;
     }
+
+    await logActivity({
+      actorId: req.userId,
+      actorRole: req.role,
+      action: "user_profile_updated",
+      entityType: "user",
+      entityId: user._id.toString(),
+      entityLabel: user.email,
+      description: `${user.email} updated their profile`,
+    });
 
     res.json({
       message: "Profile updated successfully",
@@ -92,6 +103,16 @@ export const updateHostProfile = async (req: Request, res: Response): Promise<vo
       return;
     }
 
+    await logActivity({
+      actorId: req.userId,
+      actorRole: req.role,
+      action: "host_profile_updated",
+      entityType: "host_profile",
+      entityId: hostProfile._id.toString(),
+      entityLabel: hostProfile.userId?.email || hostProfile._id.toString(),
+      description: `Host profile was updated by ${hostProfile.userId?.email || "host"}`,
+    });
+
     res.json({
       message: "Host profile updated successfully",
       hostProfile,
@@ -115,6 +136,30 @@ export const getHostProperties = async (req: Request, res: Response): Promise<vo
     const properties = await Property.find({ hostId: hostProfile._id }).sort({ createdAt: -1 });
 
     res.json(properties);
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
+export const getHostPropertyById = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const hostProfile = await HostProfile.findOne({ userId: req.userId });
+    if (!hostProfile) {
+      res.status(404).json({ error: "Host profile not found" });
+      return;
+    }
+
+    const property = await Property.findOne({
+      _id: req.params.id,
+      hostId: hostProfile._id,
+    });
+
+    if (!property) {
+      res.status(404).json({ error: "Property not found" });
+      return;
+    }
+
+    res.json(property);
   } catch (error: any) {
     res.status(500).json({ error: error.message });
   }
@@ -171,6 +216,16 @@ export const updatePassword = async (req: Request, res: Response): Promise<void>
 
     // Update password
     await User.findByIdAndUpdate(req.userId, { password: hashedPassword });
+
+    await logActivity({
+      actorId: req.userId,
+      actorRole: req.role,
+      action: "password_updated",
+      entityType: "auth",
+      entityId: user._id.toString(),
+      entityLabel: user.email,
+      description: `${user.email} updated their password`,
+    });
 
     res.json({ message: "Password updated successfully" });
   } catch (error: any) {

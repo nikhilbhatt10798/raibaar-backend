@@ -10,6 +10,7 @@ const {
   getAllReviews,
   deleteReview,
   getProperties,
+  getPropertyById,
   togglePropertyFeature,
   togglePropertyActive,
   deleteProperty,
@@ -22,6 +23,7 @@ const {
   approveBooking,
   getPricingSettings,
   updatePricingSettings,
+  getActivityLogs,
 } = require("../controllers/admin");
 const { authMiddleware } = require("../middleware");
 
@@ -31,6 +33,7 @@ const router = express.Router();
 router.get("/stats", authMiddleware, getDashboardStats);
 router.get("/pricing", authMiddleware, getPricingSettings);
 router.put("/pricing", authMiddleware, updatePricingSettings);
+router.get("/activity-logs", authMiddleware, getActivityLogs);
 
 // User Management
 router.get("/users", authMiddleware, getAllUsers);
@@ -48,6 +51,7 @@ router.delete("/reviews/:reviewId", authMiddleware, deleteReview);
 
 // Property Management
 router.get("/properties", authMiddleware, getProperties);
+router.get("/properties/:propertyId", authMiddleware, getPropertyById);
 router.post("/properties", authMiddleware, addProperty);
 router.put("/properties/:propertyId", authMiddleware, updateProperty);
 router.put("/properties/:propertyId/feature", authMiddleware, togglePropertyFeature);

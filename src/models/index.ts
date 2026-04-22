@@ -194,6 +194,21 @@ const pricingSettingsSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
+const activityLogSchema = new mongoose.Schema(
+  {
+    actorId: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
+    actorRole: String,
+    actorName: String,
+    action: { type: String, required: true },
+    entityType: { type: String, required: true },
+    entityId: String,
+    entityLabel: String,
+    description: { type: String, required: true },
+    metadata: mongoose.Schema.Types.Mixed,
+  },
+  { timestamps: true }
+);
+
 export const User = mongoose.model("User", userSchema);
 export const HostProfile = mongoose.model("HostProfile", hostProfileSchema);
 export const Property = mongoose.model("Property", propertySchema);
@@ -202,4 +217,5 @@ export const Booking = mongoose.model("Booking", bookingSchema);
 export const Payment = mongoose.model("Payment", paymentSchema);
 export const HostWallet = mongoose.model("HostWallet", hostWalletSchema);
 export const PricingSettings = mongoose.model("PricingSettings", pricingSettingsSchema);
+export const ActivityLog = mongoose.model("ActivityLog", activityLogSchema);
 // Testimonial model is imported from models/Testimonial.ts to avoid duplicate compilation

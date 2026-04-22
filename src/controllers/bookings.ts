@@ -3,6 +3,7 @@ import { z } from "zod";
 import { Booking, Property, HostProfile, Review, HostWallet, User } from "../models/index";
 import { calculatePaymentBreakdown, getPricingConfig } from "../utils/paymentCalculations";
 import { differenceInDays } from "date-fns";
+import { logActivity } from "../utils/activityLog";
 
 const buildBookingCode = () => `RNB-${Date.now().toString().slice(-8)}`;
 const buildInvoiceNumber = () => `INV-${Date.now().toString().slice(-10)}`;
@@ -159,6 +160,21 @@ export const createBooking = async (req: Request, res: Response): Promise<void> 
 
     await booking.save();
 
+    await logActivity({
+      actorId: req.userId,
+      actorRole: req.role,
+      action: "booking_created",
+      entityType: "booking",
+      entityId: booking._id.toString(),
+      entityLabel: booking.bookingCode,
+      description: `Booking ${booking.bookingCode} was created`,
+      metadata: {
+        propertyId,
+        guests,
+        totalPrice: booking.totalPrice,
+      },
+    });
+
     res.status(201).json({
       message: "Booking created successfully",
       booking: {
@@ -252,6 +268,18 @@ export const updateBookingStatus = async (req: Request, res: Response): Promise<
       .populate("propertyId")
       .populate("userId", "firstName lastName email phone");
 
+    if (updated) {
+      await logActivity({
+        actorId: req.userId,
+        actorRole: req.role,
+        action: `booking_${status}`,
+        entityType: "booking",
+        entityId: updated._id.toString(),
+        entityLabel: updated.bookingCode || updated._id.toString(),
+        description: `Booking ${updated.bookingCode || updated._id} was updated to ${status}`,
+      });
+    }
+
     res.json({
       message: `Booking ${status} successfully`,
       booking: updated ? mapBookingResponse(updated) : null,
@@ -283,6 +311,19 @@ export const cancelBooking = async (req: Request, res: Response): Promise<void> 
     booking.status = "cancelled";
     booking.cancellationReason = cancellationReason;
     await booking.save();
+
+    await logActivity({
+      actorId: req.userId,
+      actorRole: req.role,
+      action: "booking_cancelled",
+      entityType: "booking",
+      entityId: booking._id.toString(),
+      entityLabel: booking.bookingCode || booking._id.toString(),
+      description: `Booking ${booking.bookingCode || booking._id} was cancelled`,
+      metadata: {
+        cancellationReason,
+      },
+    });
 
     const populated = await Booking.findById(booking._id)
       .populate("propertyId")
@@ -326,6 +367,20 @@ export const createReview = async (req: Request, res: Response): Promise<void> =
     });
 
     await review.save();
+
+    await logActivity({
+      actorId: req.userId,
+      actorRole: req.role,
+      action: "review_created",
+      entityType: "review",
+      entityId: review._id.toString(),
+      entityLabel: propertyId,
+      description: "A property review was submitted",
+      metadata: {
+        propertyId,
+        rating,
+      },
+    });
 
     // Update property rating
     const allReviews = await Review.find({ propertyId });

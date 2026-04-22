@@ -3,6 +3,7 @@ import { z } from "zod";
 import { User } from "../models/index";
 import { hashPassword, comparePassword, generateToken } from "../utils/auth";
 import { generateOtpCode, hashOtpCode, sendOtpNotification } from "../utils/notifications";
+import { logActivity } from "../utils/activityLog";
 
 const registerSchema = z.object({
   email: z.string().email(),
@@ -61,6 +62,16 @@ export const registerUser = async (req: Request, res: Response): Promise<void> =
 
     await user.save();
 
+    await logActivity({
+      actorId: user._id.toString(),
+      actorRole: user.role,
+      action: "user_registered",
+      entityType: "user",
+      entityId: user._id.toString(),
+      entityLabel: user.email,
+      description: `${user.email} registered a new user account`,
+    });
+
     // Generate token
     const token = generateToken(user._id.toString(), user.role);
 
@@ -106,6 +117,16 @@ export const loginUser = async (req: Request, res: Response): Promise<void> => {
     const token = generateToken(user._id.toString(), user.role);
     user.lastLoginAt = new Date();
     await user.save();
+
+    await logActivity({
+      actorId: user._id.toString(),
+      actorRole: user.role,
+      action: "user_logged_in",
+      entityType: "auth",
+      entityId: user._id.toString(),
+      entityLabel: user.email,
+      description: `${user.email} logged in`,
+    });
 
     res.json({
       message: "Login successful",
@@ -177,6 +198,16 @@ export const registerHost = async (req: Request, res: Response): Promise<void> =
     });
 
     await hostProfile.save();
+
+    await logActivity({
+      actorId: user._id.toString(),
+      actorRole: user.role,
+      action: "host_registered",
+      entityType: "user",
+      entityId: user._id.toString(),
+      entityLabel: user.email,
+      description: `${user.email} registered a host account`,
+    });
 
     // Generate token
     const token = generateToken(user._id.toString(), user.role);
@@ -262,6 +293,16 @@ export const verifyLoginOtp = async (req: Request, res: Response): Promise<void>
     user.otpExpiresAt = undefined;
     user.lastLoginAt = new Date();
     await user.save();
+
+    await logActivity({
+      actorId: user._id.toString(),
+      actorRole: user.role,
+      action: "user_logged_in_otp",
+      entityType: "auth",
+      entityId: user._id.toString(),
+      entityLabel: user.email,
+      description: `${user.email} logged in using OTP`,
+    });
 
     const token = generateToken(user._id.toString(), user.role);
 

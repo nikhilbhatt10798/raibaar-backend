@@ -110,7 +110,7 @@ const bookingSchema = new mongoose.Schema(
     },
     paymentStatus: {
       type: String,
-      enum: ["pending", "completed", "failed"],
+      enum: ["pending", "completed", "failed", "refunded"],
       default: "pending",
     },
     paymentId: { type: mongoose.Schema.Types.ObjectId, ref: "Payment" },
@@ -218,4 +218,5 @@ export const Payment = mongoose.model("Payment", paymentSchema);
 export const HostWallet = mongoose.model("HostWallet", hostWalletSchema);
 export const PricingSettings = mongoose.model("PricingSettings", pricingSettingsSchema);
 export const ActivityLog = mongoose.model("ActivityLog", activityLogSchema);
-// Testimonial model is imported from models/Testimonial.ts to avoid duplicate compilation
+// Re-export Testimonial from the separate file
+export { Testimonial } from "./Testimonial";

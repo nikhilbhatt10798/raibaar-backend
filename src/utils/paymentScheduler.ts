@@ -4,14 +4,14 @@
  */
 
 // Using node-cron for scheduling
-const cron = require("node-cron");
+import * as cron from "node-cron";
 
 // Controllers
-const {
+import {
   handleStuckPayments,
   processPendingRefunds,
   reconcilePayments,
-} = require("../controllers/paymentFailure");
+} from "../controllers/paymentFailure";
 
 /**
  * Initialize all scheduled payment jobs
@@ -150,7 +150,7 @@ const stopPaymentJobs = (jobs: any) => {
 /**
  * Alternative: Using Bull queue for more robust job handling
  */
-const Queue = require("bull");
+import Queue from "bull";
 
 const createPaymentJobQueues = () => {
   const redisConfig = {
@@ -224,7 +224,7 @@ const createPaymentJobQueues = () => {
   };
 };
 
-module.exports = {
+export {
   initializePaymentJobs,
   stopPaymentJobs,
   createPaymentJobQueues

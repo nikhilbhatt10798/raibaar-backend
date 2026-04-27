@@ -1,5 +1,5 @@
-const { Router } = require("express");
-const {
+import { Router } from "express";
+import {
   getUserProfile,
   updateUserProfile,
   getUserBookings,
@@ -9,8 +9,8 @@ const {
   getHostPropertyById,
   getHostBookings,
   updatePassword,
-} = require("../controllers/userProfile");
-const { authMiddleware } = require("../middleware/index");
+} from "../controllers/userProfile";
+import { authMiddleware } from "../middleware/index";
 
 const router = Router();
 
@@ -27,4 +27,4 @@ router.get("/host/properties", authMiddleware, getHostProperties);
 router.get("/host/properties/:id", authMiddleware, getHostPropertyById);
 router.get("/host/bookings", authMiddleware, getHostBookings);
 
-module.exports = router;
+export default router;

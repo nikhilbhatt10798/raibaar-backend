@@ -1,6 +1,7 @@
-const multer = require("multer");
-const path = require("path");
-const { mkdir } = require("fs/promises");
+import multer from "multer";
+import path from "path";
+import { mkdir } from "fs/promises";
+import { getFileUrl } from "../utils/urlHelper";
 
 // Ensure uploads directory exists
 const uploadsDir = path.join(__dirname, "../../uploads");
@@ -43,11 +44,7 @@ const upload = multer({
   },
 });
 
-const getFileUrl = (filename: string): string => {
-  return `http://localhost:5000/uploads/${filename}`;
-};
-
-module.exports = {
+export {
   upload,
   getFileUrl
 };

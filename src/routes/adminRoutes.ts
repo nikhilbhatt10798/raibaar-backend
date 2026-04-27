@@ -1,5 +1,5 @@
-const express = require("express");
-const {
+import express from "express";
+import {
   getDashboardStats,
   getAllUsers,
   deleteUser,
@@ -24,8 +24,8 @@ const {
   getPricingSettings,
   updatePricingSettings,
   getActivityLogs,
-} = require("../controllers/admin");
-const { authMiddleware } = require("../middleware");
+} from "../controllers/admin";
+import { authMiddleware } from "../middleware/index";
 
 const router = express.Router();
 
@@ -69,4 +69,4 @@ router.post("/users", authMiddleware, createUser);
 // Admin Creation (public endpoint, should be restricted in production)
 router.post("/create-admin", createAdminUser);
 
-module.exports = router;
+export default router;

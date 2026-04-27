@@ -1,5 +1,5 @@
-const express = require("express");
-const {
+import express from "express";
+import {
   createProperty,
   getProperties,
   getPropertyById,
@@ -7,8 +7,8 @@ const {
   updateProperty,
   getFeaturedProperties,
   getLocations,
-} = require("../controllers/properties");
-const { authMiddleware } = require("../middleware/index");
+} from "../controllers/properties";
+import { authMiddleware } from "../middleware/index";
 
 const router = express.Router();
 
@@ -22,4 +22,4 @@ router.get("/:id/reviews", getPropertyReviews);
 router.post("/", authMiddleware, createProperty);
 router.put("/:id", authMiddleware, updateProperty);
 
-module.exports = router;
+export default router;

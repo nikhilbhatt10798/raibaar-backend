@@ -1,4 +1,4 @@
-const { verifyToken } = require("../utils/auth");
+import { verifyToken } from "../utils/auth";
 
 const authMiddleware = (req: any, res: any, next: any): void => {
   const token = req.headers.authorization?.split(" ")[1];
@@ -26,7 +26,7 @@ const errorHandler = (err: any, req: any, res: any, next: any): void => {
   });
 };
 
-module.exports = {
+export {
   authMiddleware,
   errorHandler
 };

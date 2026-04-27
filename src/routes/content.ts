@@ -1,5 +1,5 @@
-const express = require("express");
-const {
+import express from "express";
+import {
   getHeroContent,
   updateHeroContent,
   getStats,
@@ -21,8 +21,8 @@ const {
   getPricingSettings,
   updatePricingSettings,
   getAllContent,
-} = require("../controllers/content");
-const { authMiddleware } = require("../middleware");
+} from "../controllers/content";
+import { authMiddleware } from "../middleware/index";
 
 const router = express.Router();
 
@@ -61,4 +61,4 @@ router.delete("/testimonials/:id", authMiddleware, deleteHomepageTestimonial);
 router.get("/pricing", getPricingSettings);
 router.put("/pricing", authMiddleware, updatePricingSettings);
 
-module.exports = router;
+export default router;

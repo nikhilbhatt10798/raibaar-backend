@@ -109,8 +109,8 @@ export const updateHostProfile = async (req: Request, res: Response): Promise<vo
       action: "host_profile_updated",
       entityType: "host_profile",
       entityId: hostProfile._id.toString(),
-      entityLabel: hostProfile.userId?.email || hostProfile._id.toString(),
-      description: `Host profile was updated by ${hostProfile.userId?.email || "host"}`,
+      entityLabel: (hostProfile.userId as any)?.email || hostProfile._id.toString(),
+      description: `Host profile was updated by ${(hostProfile.userId as any)?.email || "host"}`,
     });
 
     res.json({

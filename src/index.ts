@@ -19,8 +19,6 @@ import contentRoutes from "./routes/content";
 import testimonialRoutes from "./routes/testimonials";
 import { initializePaymentJobs } from "./utils/paymentScheduler";
 
-// For CommonJS compatibility  
-const __dirname = path.resolve();
 
 const app = express();
 const PORT = process.env.PORT || 5000;

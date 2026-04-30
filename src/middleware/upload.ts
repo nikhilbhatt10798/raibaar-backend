@@ -44,7 +44,4 @@ const upload = multer({
   },
 });
 
-export {
-  upload,
-  getFileUrl
-};
+export { upload, getFileUrl };

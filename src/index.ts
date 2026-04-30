@@ -26,7 +26,7 @@ const MONGODB_URI = process.env.MONGODB_URI || "mongodb://localhost:27017/raibaa
 
 // Middleware
 app.use(cors({ 
-  origin: getCorsOrigins()
+  origin: ["https://raibaarstay.com", "http://localhost:5173", process.env.CORS_ORIGIN || "https://raibaarstay.com"]
 }));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
@@ -81,8 +81,7 @@ app.get("/api", (req: any, res: any) => {
 app.use(errorHandler);
 
 app.listen(PORT, () => {
-  const baseUrl = getBaseUrl();
-  console.log(`✓ Server running on ${baseUrl}`);
+  console.log(`✓ Server running on http://localhost:${PORT}`);
   console.log("💳 Payment system initialized with background jobs");
 });
 

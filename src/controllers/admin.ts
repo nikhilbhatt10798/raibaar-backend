@@ -1,5 +1,5 @@
 import { Request, Response } from "express";
-import { User, Property, Booking, Review, Testimonial, PricingSettings, Payment, ActivityLog } from "../models";
+import { User, Property, Booking, Review, Testimonial, PricingSettings, Payment, ActivityLog, HostProfile } from "../models";
 import { z } from "zod";
 import { hashPassword } from "../utils/auth";
 import Razorpay from "razorpay";
@@ -8,6 +8,24 @@ import { logActivity } from "../utils/activityLog";
 const pricingSchema = z.object({
   convenienceChargePercentage: z.number().min(0).max(100),
   gstPercentage: z.number().min(0).max(100),
+});
+
+const adminPropertySchema = z.object({
+  title: z.string().min(1),
+  description: z.string().min(1),
+  village: z.string().min(1),
+  district: z.string().min(1),
+  state: z.string().min(1),
+  price: z.number().positive(),
+  maxGuests: z.number().positive(),
+  images: z.array(z.string()).min(1, "At least one property image is required.").max(10, "Maximum 10 images allowed."),
+  videos: z.array(z.string()).max(2, "Maximum 2 videos allowed.").default([]),
+  amenities: z.array(z.string()).default([]),
+  houseRules: z.array(z.string()).default([]),
+  villageExperience: z.string().default(""),
+  hostId: z.string().optional(),
+  featured: z.boolean().optional(),
+  active: z.boolean().optional(),
 });
 
 // Initialize Razorpay
@@ -570,18 +588,25 @@ export const addProperty = async (req: AdminRequest, res: Response) => {
   try {
     if (!assertAdmin(req, res)) return;
 
-    const { title, description, city, price, amenities, image, hostId } = req.body;
+    const data = adminPropertySchema.parse(req.body);
+
+    const fallbackHost = data.hostId ? null : await HostProfile.findOne().sort({ createdAt: 1 });
+    const hostId = data.hostId || fallbackHost?._id;
+
+    if (!hostId) {
+      res.status(400).json({
+        success: false,
+        message: "A host profile is required before creating a property.",
+        errors: { hostId: ["No host profile was found."] },
+      });
+      return;
+    }
 
     const property = new Property({
-      title,
-      description,
-      city,
-      price,
-      amenities: amenities || [],
-      image,
-      hostId: hostId || req.user?.id,
-      featured: false,
-      active: true,
+      ...data,
+      hostId,
+      featured: data.featured || false,
+      active: data.active ?? true,
     });
 
     await property.save();
@@ -597,7 +622,16 @@ export const addProperty = async (req: AdminRequest, res: Response) => {
     });
 
     res.json(property);
-  } catch (error) {
+  } catch (error: any) {
+    if (error instanceof z.ZodError) {
+      res.status(400).json({
+        success: false,
+        message: "Property validation failed.",
+        errors: error.flatten().fieldErrors,
+      });
+      return;
+    }
+
     res.status(500).json({ error: "Failed to add property" });
   }
 };
@@ -607,7 +641,7 @@ export const updateProperty = async (req: AdminRequest, res: Response) => {
     if (!assertAdmin(req, res)) return;
 
     const { propertyId } = req.params;
-    const updates = req.body;
+    const updates = adminPropertySchema.partial().parse(req.body);
 
     const property = await Property.findByIdAndUpdate(propertyId, updates, { new: true });
 
@@ -624,7 +658,16 @@ export const updateProperty = async (req: AdminRequest, res: Response) => {
     }
 
     res.json(property);
-  } catch (error) {
+  } catch (error: any) {
+    if (error instanceof z.ZodError) {
+      res.status(400).json({
+        success: false,
+        message: "Property validation failed.",
+        errors: error.flatten().fieldErrors,
+      });
+      return;
+    }
+
     res.status(500).json({ error: "Failed to update property" });
   }
 };

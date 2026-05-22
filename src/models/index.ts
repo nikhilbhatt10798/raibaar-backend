@@ -1,4 +1,5 @@
 import mongoose from "mongoose";
+import { normalizeMediaUrl, normalizeMediaUrls } from "../utils/urlHelper";
 
 // User Schema
 const userSchema = new mongoose.Schema(
@@ -56,6 +57,7 @@ const propertySchema = new mongoose.Schema(
     rating: { type: Number, default: 0 },
     reviewCount: { type: Number, default: 0 },
     images: [String],
+    videos: [String],
     photos: [
       {
         url: String,
@@ -208,6 +210,38 @@ const activityLogSchema = new mongoose.Schema(
   },
   { timestamps: true }
 );
+
+const normalizePropertyMedia = (_doc: any, ret: any) => {
+  ret.images = normalizeMediaUrls(ret.images);
+  ret.videos = normalizeMediaUrls(ret.videos);
+  if (Array.isArray(ret.photos)) {
+    ret.photos = ret.photos.map((photo: any) => ({
+      ...photo,
+      url: normalizeMediaUrl(photo?.url),
+    }));
+  }
+  return ret;
+};
+
+propertySchema.set("toJSON", { transform: normalizePropertyMedia });
+propertySchema.set("toObject", { transform: normalizePropertyMedia });
+
+const normalizeUserMedia = (_doc: any, ret: any) => {
+  if (ret.avatar) ret.avatar = normalizeMediaUrl(ret.avatar);
+  return ret;
+};
+
+userSchema.set("toJSON", { transform: normalizeUserMedia });
+userSchema.set("toObject", { transform: normalizeUserMedia });
+
+const normalizeReviewMedia = (_doc: any, ret: any) => {
+  ret.photos = normalizeMediaUrls(ret.photos);
+  if (ret.userAvatar) ret.userAvatar = normalizeMediaUrl(ret.userAvatar);
+  return ret;
+};
+
+reviewSchema.set("toJSON", { transform: normalizeReviewMedia });
+reviewSchema.set("toObject", { transform: normalizeReviewMedia });
 
 export const User = mongoose.model("User", userSchema);
 export const HostProfile = mongoose.model("HostProfile", hostProfileSchema);

@@ -25,14 +25,12 @@ const PORT = process.env.PORT || 5000;
 const MONGODB_URI = process.env.MONGODB_URI || "mongodb://localhost:27017/raibaar";
 
 // Middleware
-app.use(cors({ 
-  origin: ["https://raibaarstay.com", "http://localhost:5173", process.env.CORS_ORIGIN || "https://raibaarstay.com"]
-}));
+app.use(cors({ origin: getCorsOrigins() }));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// Serve static files from uploads directory
-app.use("/uploads", express.static("uploads"));
+// Serve static files from uploads directory.
+app.use("/uploads", express.static(path.join(__dirname, "../uploads")));
 
 // Database connection
 mongoose

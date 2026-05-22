@@ -1,39 +1,87 @@
 import { Request, Response } from "express";
-import { getFileUrl } from "../middleware/upload";
+import {
+  MEDIA_LIMITS,
+  MEDIA_MIME_TYPES,
+  buildStoredMedia,
+  removeFiles,
+  validateUploadedFiles,
+} from "../services/mediaService";
 
-export const uploadImages = async (req: Request, res: Response): Promise<void> => {
+type UploadFiles = Partial<Record<"images" | "videos", Express.Multer.File[]>>;
+
+const sendValidationError = (
+  res: Response,
+  message: string,
+  errors: Record<string, string[]>
+) => {
+  res.status(400).json({
+    success: false,
+    message,
+    errors,
+  });
+};
+
+export const uploadMedia = async (req: Request, res: Response): Promise<void> => {
+  const filesByField = (req.files || {}) as UploadFiles;
+  const allFiles = [...(filesByField.images || []), ...(filesByField.videos || [])];
+
   try {
-    if (!req.files || req.files.length === 0) {
-      res.status(400).json({ error: "No files uploaded" });
+    if (allFiles.length === 0) {
+      sendValidationError(res, "Please select at least one media file.", {
+        media: ["No files were uploaded."],
+      });
       return;
     }
 
-    const uploadedFiles = (req.files as Express.Multer.File[]).map((file) => ({
-      filename: file.filename,
-      url: getFileUrl(file.filename),
-      size: file.size,
-      mimetype: file.mimetype,
-    }));
+    const { errors, validFiles } = await validateUploadedFiles(filesByField);
+    if (Object.keys(errors).length > 0) {
+      await removeFiles(allFiles);
+      const firstMessage = errors.images?.[0] || errors.videos?.[0] || "Upload validation failed.";
+      sendValidationError(res, firstMessage, errors);
+      return;
+    }
+
+    const images = validFiles.images.map(buildStoredMedia);
+    const videos = validFiles.videos.map(buildStoredMedia);
 
     res.json({
-      message: "Files uploaded successfully",
-      files: uploadedFiles,
-      count: uploadedFiles.length,
+      success: true,
+      message: "Media uploaded successfully.",
+      files: [...images, ...videos],
+      images,
+      videos,
+      count: {
+        images: images.length,
+        videos: videos.length,
+        total: images.length + videos.length,
+      },
     });
   } catch (error: any) {
-    res.status(500).json({ error: error.message });
+    await removeFiles(allFiles);
+    res.status(500).json({
+      success: false,
+      message: "Media upload failed. Please try again.",
+      errors: {
+        media: [error.message || "Unexpected upload failure."],
+      },
+    });
   }
 };
 
-export const getUploadedImages = async (req: Request, res: Response): Promise<void> => {
-  try {
-    res.json({
-      message: "Upload endpoint is working",
-      uploadEndpoint: "/api/upload",
-      maxFileSize: "5MB",
-      allowedFormats: ["JPEG", "PNG", "GIF", "WebP"],
-    });
-  } catch (error: any) {
-    res.status(500).json({ error: error.message });
-  }
+export const getUploadInfo = async (req: Request, res: Response): Promise<void> => {
+  res.json({
+    success: true,
+    message: "Upload endpoint is working.",
+    uploadEndpoint: "/api/upload",
+    limits: {
+      images: MEDIA_LIMITS.images,
+      videos: MEDIA_LIMITS.videos,
+      imageMaxFileSize: `${Math.round(MEDIA_LIMITS.imageSizeBytes / 1024 / 1024)}MB`,
+      videoMaxFileSize: `${Math.round(MEDIA_LIMITS.videoSizeBytes / 1024 / 1024)}MB`,
+    },
+    allowedFormats: {
+      images: MEDIA_MIME_TYPES.images,
+      videos: MEDIA_MIME_TYPES.videos,
+    },
+  });
 };

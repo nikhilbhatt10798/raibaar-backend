@@ -11,7 +11,8 @@ const createPropertySchema = z.object({
   state: z.string().min(1),
   price: z.number().positive(),
   maxGuests: z.number().positive(),
-  images: z.array(z.string()),
+  images: z.array(z.string()).min(1, "At least one property image is required.").max(10, "Maximum 10 images allowed."),
+  videos: z.array(z.string()).max(2, "Maximum 2 videos allowed.").default([]),
   amenities: z.array(z.string()),
   houseRules: z.array(z.string()),
   villageExperience: z.string(),
@@ -48,7 +49,11 @@ export const createProperty = async (req: Request, res: Response): Promise<void>
     res.status(201).json(property);
   } catch (error: any) {
     if (error instanceof z.ZodError) {
-      res.status(400).json({ error: error.errors });
+      res.status(400).json({
+        success: false,
+        message: "Property validation failed.",
+        errors: error.flatten().fieldErrors,
+      });
     } else {
       res.status(500).json({ error: error.message });
     }
@@ -95,6 +100,15 @@ export const getProperties = async (req: Request, res: Response): Promise<void> 
       },
     });
   } catch (error: any) {
+    if (error instanceof z.ZodError) {
+      res.status(400).json({
+        success: false,
+        message: "Property validation failed.",
+        errors: error.flatten().fieldErrors,
+      });
+      return;
+    }
+
     res.status(500).json({ error: error.message });
   }
 };

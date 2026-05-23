@@ -87,15 +87,5 @@ export const getCorsOrigins = (): string[] => {
     .map((origin) => origin.trim())
     .filter(Boolean);
 
-  // Include localhost origins only in development
-  const localOrigins = process.env.NODE_ENV === "development" 
-    ? [
-        "http://localhost:3000",
-        "http://localhost:5173",
-        "http://127.0.0.1:3000",
-        "http://127.0.0.1:5173",
-      ]
-    : [];
-
-  return Array.from(new Set([getFrontendUrl(), getDevUrl(), ...localOrigins, ...configuredOrigins]));
-};
+  return Array.from(new Set([getFrontendUrl(), getDevUrl(), ...configuredOrigins]));
+  };

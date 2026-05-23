@@ -87,5 +87,12 @@ export const getCorsOrigins = (): string[] => {
     .map((origin) => origin.trim())
     .filter(Boolean);
 
-  return Array.from(new Set([getFrontendUrl(), getDevUrl(), ...configuredOrigins]));
+  const localOrigins = [
+    "http://localhost:3000",
+    "http://localhost:5173",
+    "http://127.0.0.1:3000",
+    "http://127.0.0.1:5173",
+  ];
+
+  return Array.from(new Set([getFrontendUrl(), getDevUrl(), ...localOrigins, ...configuredOrigins]));
 };

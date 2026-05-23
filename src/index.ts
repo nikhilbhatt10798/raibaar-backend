@@ -17,6 +17,7 @@ import uploadRoutes from "./routes/upload";
 import paymentRoutes from "./routes/payment";
 import contentRoutes from "./routes/content";
 import testimonialRoutes from "./routes/testimonials";
+import notificationRoutes from "./routes/notifications";
 import { initializePaymentJobs } from "./utils/paymentScheduler";
 
 
@@ -25,7 +26,21 @@ const PORT = process.env.PORT || 5000;
 const MONGODB_URI = process.env.MONGODB_URI || "mongodb://localhost:27017/raibaar";
 
 // Middleware
-app.use(cors({ origin: getCorsOrigins() }));
+app.use(
+  cors({
+    origin(origin, callback) {
+      const allowedOrigins = getCorsOrigins();
+
+      if (!origin || allowedOrigins.includes(origin)) {
+        callback(null, true);
+        return;
+      }
+
+      callback(new Error(`CORS blocked origin: ${origin}`));
+    },
+    credentials: true,
+  })
+);
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
@@ -51,6 +66,7 @@ app.use("/api/admin", adminRoutes);
 app.use("/api/upload", uploadRoutes);
 app.use("/api/content", contentRoutes);
 app.use("/api/testimonials", testimonialRoutes);
+app.use("/api/notifications", notificationRoutes);
 
 // Health check
 app.get("/api/health", (req: any, res: any) => {
@@ -70,6 +86,7 @@ app.get("/api", (req: any, res: any) => {
       admin: "/api/admin",
       content: "/api/content",
       testimonials: "/api/testimonials",
+      notifications: "/api/notifications",
       health: "/api/health",
     },
   });

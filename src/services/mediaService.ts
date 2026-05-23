@@ -5,8 +5,8 @@ import { getFileUrl } from "../utils/urlHelper";
 export const MEDIA_LIMITS = {
   images: 10,
   videos: 2,
-  imageSizeBytes: Number(process.env.MAX_IMAGE_FILE_SIZE || 5 * 1024 * 1024),
-  videoSizeBytes: Number(process.env.MAX_VIDEO_FILE_SIZE || 50 * 1024 * 1024),
+  imageSizeBytes: Number(process.env.MAX_IMAGE_FILE_SIZE || 250 * 1024 * 1024), // 250MB for photos
+  videoSizeBytes: Number(process.env.MAX_VIDEO_FILE_SIZE || 50 * 1024 * 1024), // 50MB for videos
 };
 
 export const MEDIA_MIME_TYPES = {

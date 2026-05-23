@@ -11,7 +11,8 @@ A comprehensive Node.js/Express backend API for the Renbasera village homestays 
 - **Host Profiles**: Comprehensive host management with verification
 - **Payment Processing**: Complete Razorpay integration with GST calculations
 - **Host Earnings**: Wallet system with withdrawal management
-- **File Uploads**: Image upload for properties and reviews
+- **File Uploads**: Image and video uploads for properties (up to 250MB photos, 50MB videos)
+- **Notifications System**: Real-time user notifications with read/unread status
 - **Real-time Updates**: Redis-based caching and job processing
 
 ## Tech Stack
@@ -120,6 +121,18 @@ Server will start on `http://localhost:5000`
 - `POST /api/payments/admin/handle-stuck` - Handle stuck payments
 - `POST /api/payments/admin/process-pending-refunds` - Process refunds
 - `POST /api/payments/admin/reconcile` - Daily reconciliation
+
+### Notifications
+- `GET /api/notifications` - Get user notifications (protected)
+- `PUT /api/notifications/:notificationId/read` - Mark notification as read (protected)
+- `PUT /api/notifications/mark-all-read` - Mark all notifications as read (protected)
+- `DELETE /api/notifications/:notificationId` - Delete notification (protected)
+- `POST /api/notifications` - Create notification (protected, admin/system use)
+
+### Content & Testimonials
+- `GET /api/content` - Get static content
+- `GET /api/testimonials` - Get testimonials
+- `POST /api/testimonials` - Submit testimonial
 
 ## Environment Variables
 
